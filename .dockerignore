@@ -1,0 +1,12 @@
+node_modules
+.git
+.env
+.env.local
+.next
+dist
+*.log
+.DS_Store
+.claude
+apps/web/.next
+apps/bot/dist
+packages/db/src/migrations
