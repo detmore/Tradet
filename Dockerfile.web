@@ -9,7 +9,7 @@ COPY packages/shared/package.json   ./packages/shared/
 COPY packages/db/package.json       ./packages/db/
 COPY packages/config/package.json   ./packages/config/
 COPY apps/web/package.json          ./apps/web/
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN pnpm install --frozen-lockfile
 
 # --- builder: full source, next build ---
 FROM base AS builder
