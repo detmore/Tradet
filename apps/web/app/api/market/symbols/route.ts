@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { strategyRuns, strategyConfigs, botSettings, positions } from "@trade/db";
-import { desc, eq, and, inArray, sql } from "drizzle-orm";
+import { desc, eq, and, inArray } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
+
+type LayerResult = { layer: string; passed: boolean };
+
+function layerPassed(trace: LayerResult[], name: string): boolean {
+  return trace.find((l) => l.layer === name)?.passed ?? false;
+}
 
 export async function GET() {
   try {
@@ -17,7 +23,6 @@ export async function GET() {
 
     const symbols = (config?.symbols as string[]) ?? ["BTC/USDT"];
 
-    // Her sembol için son evaluation'ı al (paralel sorgular)
     const runPromises = symbols.map((sym) =>
       db.select({
         symbol: strategyRuns.symbol,
@@ -26,6 +31,7 @@ export async function GET() {
         mandatoryPassed: strategyRuns.mandatoryPassed,
         setupPassed: strategyRuns.setupPassed,
         confirmationsPassed: strategyRuns.confirmationsPassed,
+        trace: strategyRuns.trace,
         evaluatedAt: strategyRuns.evaluatedAt,
       })
         .from(strategyRuns)
@@ -49,6 +55,7 @@ export async function GET() {
 
     const result = symbols.map((sym, i) => {
       const run = allRuns[i]?.[0];
+      const trace = (run?.trace ?? []) as LayerResult[];
       return {
         symbol: sym,
         decision: run?.decision ?? "—",
@@ -58,6 +65,13 @@ export async function GET() {
         confirmationsPassed: run?.confirmationsPassed ?? false,
         evaluatedAt: run?.evaluatedAt ?? null,
         hasOpenPosition: openSymbols.has(sym),
+        // Bireysel layer durumları — 4 nokta için
+        layers: {
+          ema200:  layerPassed(trace, "ema200_filter"),
+          atr:     layerPassed(trace, "atr_range_filter"),
+          volume:  layerPassed(trace, "volume_filter"),
+          ema2050: layerPassed(trace, "ema2050_setup"),
+        },
       };
     });
 

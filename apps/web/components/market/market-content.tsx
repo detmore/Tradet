@@ -89,6 +89,7 @@ interface SymbolOverview {
   setupPassed: boolean;
   confirmationsPassed: boolean;
   hasOpenPosition: boolean;
+  layers: { ema200: boolean; atr: boolean; volume: boolean; ema2050: boolean };
 }
 
 export function MarketContent() {
@@ -204,34 +205,55 @@ export function MarketContent() {
 
         {/* Symbols — aktif semboller sinyal durumu ile */}
         <div style={{ display: "flex", alignItems: "center", gap: 1, padding: "0 6px", borderRight: `1px solid ${BORDER}` }}>
-          {(symbolsData.length ? symbolsData : SYMBOLS_FALLBACK.map(s => ({ symbol: s, decision: "—", score: 0, mandatoryPassed: false, setupPassed: false, confirmationsPassed: false, hasOpenPosition: false }))).map(sd => {
+          {(symbolsData.length
+            ? symbolsData
+            : SYMBOLS_FALLBACK.map(s => ({ symbol: s, decision: "—", score: 0, mandatoryPassed: false, setupPassed: false, confirmationsPassed: false, hasOpenPosition: false, layers: { ema200: false, atr: false, volume: false, ema2050: false } }))
+          ).map(sd => {
             const on = symbol === sd.symbol;
-            const dotColor = sd.hasOpenPosition
-              ? "#f0a500"
-              : sd.decision === "buy"
-                ? "#00e676"
-                : sd.mandatoryPassed && sd.setupPassed
-                  ? "#ffab00"
-                  : "rgba(255,255,255,0.15)";
+            const isBuy = sd.decision === "buy";
+            const LAYER_DOTS = [
+              { key: "ema200",  label: "E200" },
+              { key: "atr",     label: "ATR"  },
+              { key: "volume",  label: "VOL"  },
+              { key: "ema2050", label: "EMA"  },
+            ] as const;
             return (
               <button key={sd.symbol} onClick={() => setSymbol(sd.symbol)} style={{
                 display: "flex", flexDirection: "column", alignItems: "flex-start",
-                padding: "4px 10px", cursor: "pointer", gap: 2,
-                border: on ? "1px solid var(--accent-border)" : "1px solid transparent",
+                padding: "5px 14px 5px 10px", cursor: "pointer", gap: 4, minWidth: 90,
+                borderRight: `1px solid ${BORDER}`,
+                borderBottom: on ? "2px solid var(--accent)" : "2px solid transparent",
                 background: on ? "var(--accent-dim)" : "transparent",
-                transition: "all 0.1s",
+                transition: "background 0.1s",
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: dotColor, flexShrink: 0,
-                    boxShadow: sd.decision === "buy" ? "0 0 5px #00e676" : sd.hasOpenPosition ? "0 0 5px #f0a500" : "none" }} />
-                  <span style={{ fontFamily: "var(--font-ui)", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase",
-                    color: on ? "var(--accent)" : "var(--text-2)", fontWeight: on ? 700 : 500 }}>
+                {/* Sembol adı + skor */}
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", width: "100%", gap: 8 }}>
+                  <span style={{ fontFamily: "var(--font-ui)", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase",
+                    color: on ? "var(--accent)" : "var(--text-1)", fontWeight: 700 }}>
                     {sd.symbol.replace("/USDT", "")}
                   </span>
+                  <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700,
+                    color: isBuy ? "var(--positive)" : sd.score >= 60 ? "var(--warning)" : "var(--text-3)" }}>
+                    {sd.score > 0 ? Math.round(sd.score) : "—"}
+                  </span>
                 </div>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: sd.score >= 60 ? "var(--positive)" : "var(--text-3)" }}>
-                  {sd.score > 0 ? Math.round(sd.score) : "—"}
-                </span>
+                {/* 4 layer noktası: EMA200 · ATR · VOL · EMA2050 */}
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  {LAYER_DOTS.map(({ key, label }) => {
+                    const passed = sd.layers[key];
+                    return (
+                      <div key={key} title={label} style={{
+                        width: 6, height: 6, borderRadius: "50%",
+                        background: passed ? "var(--positive)" : "rgba(255,255,255,0.12)",
+                        boxShadow: passed ? "0 0 4px var(--positive)" : "none",
+                        flexShrink: 0,
+                      }} />
+                    );
+                  })}
+                  {sd.hasOpenPosition && (
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 8, color: "var(--accent)", marginLeft: 2, letterSpacing: "0.04em" }}>POS</span>
+                  )}
+                </div>
               </button>
             );
           })}
