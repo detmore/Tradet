@@ -128,6 +128,10 @@ async function main() {
       notify,
       events,
       logger: createLogger("eval-loop"),
+      // Live mode: always fetch fresh balance from exchange before risk approval
+      ...(env.BOT_MODE === "live" && {
+        getLiveBalance: () => exchange.getAccountBalance("USDT"),
+      }),
     },
     env.BOT_MODE
   );

@@ -29,6 +29,8 @@ export interface EvaluationLoopDeps {
   notify: PostgresNotifyPublisher;
   events: DomainEventBus;
   logger: Logger;
+  /** Live mode only: fetch real account balance from exchange on demand */
+  getLiveBalance?: () => Promise<string>;
 }
 
 export class EvaluationLoop {
@@ -89,9 +91,19 @@ export class EvaluationLoop {
     const settings = settingsRows[0];
     if (!settings || settings.killSwitchActive) return;
 
-    const rawBalance = this.mode === "live"
-      ? settings.liveCurrentBalance
-      : settings.paperCurrentBalance;
+    // Live mode: fetch fresh balance from exchange (DB value can be up to 5min stale)
+    // Paper mode: use DB-tracked balance
+    let rawBalance: string | null;
+    if (this.mode === "live" && this.deps.getLiveBalance) {
+      try {
+        rawBalance = await this.deps.getLiveBalance();
+      } catch (err) {
+        logger.error({ err, symbol }, "Failed to fetch live balance — skipping trade");
+        return;
+      }
+    } else {
+      rawBalance = settings.paperCurrentBalance;
+    }
     const balance = parseFloat(rawBalance ?? "0");
     if (isNaN(balance) || balance <= 0) {
       logger.warn({ symbol, mode: this.mode }, "Invalid balance — skipping trade");
