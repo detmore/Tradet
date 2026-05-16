@@ -1,7 +1,7 @@
 import type { Db } from "@trade/db";
 import type { Logger } from "../observability/logger.js";
 import type { BotMode } from "@trade/shared";
-import { sql } from "drizzle-orm";
+import { sql, and } from "drizzle-orm";
 
 export class EquityService {
   private snapshotTimer?: NodeJS.Timeout;
@@ -31,7 +31,7 @@ export class EquityService {
     const openPositions = await this.db
       .select()
       .from(positions)
-      .where(eq(positions.status, "open"));
+      .where(and(eq(positions.status, "open"), eq(positions.mode, this.mode)));
 
     // Compute cumulative realized PnL from the trades table (same mode only)
     const pnlRows = await this.db

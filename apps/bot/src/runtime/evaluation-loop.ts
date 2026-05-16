@@ -84,12 +84,16 @@ export class EvaluationLoop {
       return;
     }
 
-    // Get current balance for risk calculation
+    // Re-read balance after exits (checkExits may have restored balance from closed positions)
     const settingsRows = await db.select().from(botSettings).limit(1);
     const settings = settingsRows[0];
     if (!settings || settings.killSwitchActive) return;
 
-    const balance = parseFloat(settings.paperCurrentBalance);
+    const balance = parseFloat(settings.paperCurrentBalance ?? "0");
+    if (isNaN(balance) || balance <= 0) {
+      logger.warn({ symbol }, "Invalid balance — skipping trade");
+      return;
+    }
     const currentPrice = String(latestCandle.close);
     const currentPriceNum = parseFloat(currentPrice);
 

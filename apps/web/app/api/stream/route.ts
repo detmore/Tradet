@@ -6,7 +6,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest) {
   const encoder = new TextEncoder();
+
   let sqlClient: ReturnType<typeof postgres> | null = null;
+  let closeStream!: () => void;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -22,10 +24,6 @@ export async function GET(_req: NextRequest) {
         }
       };
 
-      // Send initial heartbeat
-      send("connected", { ts: Date.now() });
-
-      // Map each pg channel to the SSE event name the client listens for
       const CHANNEL_EVENT_MAP: Record<string, string> = {
         trade_events:    "trade_event",
         equity_events:   "equity_event",
@@ -39,25 +37,35 @@ export async function GET(_req: NextRequest) {
         catch { send(sseEvent, { raw: payload, _channel: channelName }); }
       };
 
+      // Register all listeners
       try {
-        await Promise.all([
-          sql.listen("trade_events",    handle("trade_events")),
-          sql.listen("equity_events",   handle("equity_events")),
-          sql.listen("alert_events",    handle("alert_events")),
-          sql.listen("settings_events", handle("settings_events")),
-        ]);
+        await sql.listen("trade_events",    handle("trade_events"));
+        await sql.listen("equity_events",   handle("equity_events"));
+        await sql.listen("alert_events",    handle("alert_events"));
+        await sql.listen("settings_events", handle("settings_events"));
       } catch (err) {
-        console.error("SSE stream error:", err);
-      } finally {
+        console.error("SSE listener setup error:", err);
         controller.close();
         await sql.end().catch(() => undefined);
-        sqlClient = null;
+        return;
       }
+
+      // Send initial heartbeat after listeners are up
+      send("connected", { ts: Date.now() });
+
+      // Keep stream alive until client disconnects (cancel() fires closeStream)
+      const streamClosed = new Promise<void>(res => { closeStream = res; });
+      await streamClosed;
+
+      controller.close();
+      await sql.end().catch(() => undefined);
+      sqlClient = null;
     },
-    async cancel() {
-      // Client disconnected — release the postgres connection
+    cancel() {
+      // Client disconnected — unblock start() and release the connection
+      if (typeof closeStream === "function") closeStream();
       if (sqlClient) {
-        await sqlClient.end().catch(() => undefined);
+        sqlClient.end().catch(() => undefined);
         sqlClient = null;
       }
     },

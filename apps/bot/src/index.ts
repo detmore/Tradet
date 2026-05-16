@@ -36,7 +36,9 @@ async function main() {
 
   // Services
   const notify = new PostgresNotifyPublisher(env.DATABASE_URL, createLogger("notify"));
-  const lifecycle = new LifecycleService(db, createLogger("lifecycle"));
+  const lifecycle = new LifecycleService(db, createLogger("lifecycle"), () => {
+    void killSwitch.load();
+  });
   const dbInit = new DbInitService(db, createLogger("db-init"));
   const configLoader = new StrategyConfigLoader(db, createLogger("config-loader"));
 
@@ -191,6 +193,7 @@ async function main() {
     equity.stop();
     await lifecycle.stop();
     await notify.close();
+    await listenerSql.end();
     await closeDb();
     process.exit(0);
   };

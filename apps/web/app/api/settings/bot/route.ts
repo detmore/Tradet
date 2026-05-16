@@ -15,6 +15,13 @@ export async function PATCH(req: NextRequest) {
     for (const key of allowed) {
       if (key in body) updates[key] = body[key];
     }
+    // Validate critical fields
+    if ("mode" in updates && updates["mode"] !== "paper" && updates["mode"] !== "live") {
+      return NextResponse.json({ error: "Invalid mode value" }, { status: 400 });
+    }
+    if ("killSwitchActive" in updates && typeof updates["killSwitchActive"] !== "boolean") {
+      return NextResponse.json({ error: "killSwitchActive must be a boolean" }, { status: 400 });
+    }
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No valid fields" }, { status: 400 });
     }

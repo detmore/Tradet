@@ -9,10 +9,12 @@ export class LifecycleService {
   private readonly db: Db;
   private readonly logger: Logger;
   private pollTimer?: NodeJS.Timeout;
+  private readonly onKillSwitchDetected: (() => void) | undefined;
 
-  constructor(db: Db, logger: Logger) {
+  constructor(db: Db, logger: Logger, onKillSwitchDetected?: () => void) {
     this.db = db;
     this.logger = logger;
+    this.onKillSwitchDetected = onKillSwitchDetected;
   }
 
   async start(): Promise<void> {
@@ -51,7 +53,9 @@ export class LifecycleService {
       if (!settings) return;
 
       if (settings.killSwitchActive && this.running) {
-        this.logger.warn("Kill switch activated — stopping bot");
+        this.logger.warn("Kill switch activated via DB poll — syncing in-memory state and stopping");
+        // Sync in-memory kill switch state before stopping
+        this.onKillSwitchDetected?.();
         await this.stop();
       }
     } catch (err) {

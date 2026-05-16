@@ -51,7 +51,7 @@ export function MiniEquityChart({ data, height = 120 }: Props) {
           }}
           labelStyle={{ color: "#666", fontSize: 10, letterSpacing: "0.06em" }}
           itemStyle={{ color: strokeHex }}
-          formatter={(v: number) => [`$${v.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "Balance"]}
+          formatter={(v) => [`$${Number(v ?? 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, "Balance"]}
           cursor={{ stroke: "rgba(240,165,0,0.3)", strokeWidth: 1 }}
         />
         <Area

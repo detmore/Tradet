@@ -3,11 +3,16 @@
 import { useEffect, useRef } from "react";
 import {
   createChart,
+  createSeriesMarkers,
   ColorType,
   LineStyle,
   CrosshairMode,
+  CandlestickSeries,
+  HistogramSeries,
+  LineSeries,
   type IChartApi,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
   type IPriceLine,
   type Time,
   type CandlestickData,
@@ -61,10 +66,11 @@ export function PriceChart({
 }: PriceChartProps) {
   const containerRef  = useRef<HTMLDivElement>(null);
   const chartRef      = useRef<IChartApi | null>(null);
-  const candleRef     = useRef<ISeriesApi<"Candlestick"> | null>(null);
-  const volumeRef     = useRef<ISeriesApi<"Histogram"> | null>(null);
-  const emaRefs       = useRef<ISeriesApi<"Line">[]>([]);
-  const priceLinesRef = useRef<IPriceLine[]>([]);
+  const candleRef      = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeRef      = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const emaRefs        = useRef<ISeriesApi<"Line">[]>([]);
+  const priceLinesRef  = useRef<IPriceLine[]>([]);
+  const markersPlugin  = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
 
   // Build chart once
   useEffect(() => {
@@ -117,8 +123,8 @@ export function PriceChart({
       handleScale:  true,
     });
 
-    // Candlestick series
-    const candleSeries = chart.addCandlestickSeries({
+    // Candlestick series (v5 API)
+    const candleSeries = chart.addSeries(CandlestickSeries, {
       upColor:        "#00e676",
       downColor:      "#ff3b3b",
       borderUpColor:  "#00e676",
@@ -127,10 +133,10 @@ export function PriceChart({
       wickDownColor:  "#ff3b3b",
     });
 
-    // Volume series (separate price scale at the bottom)
+    // Volume series
     let volSeries: ISeriesApi<"Histogram"> | null = null;
     if (showVolume) {
-      volSeries = chart.addHistogramSeries({
+      volSeries = chart.addSeries(HistogramSeries, {
         color:        "rgba(245,165,0,0.18)",
         priceFormat:  { type: "volume" },
         priceScaleId: "volume",
@@ -141,10 +147,11 @@ export function PriceChart({
       });
     }
 
-    chartRef.current  = chart;
-    candleRef.current = candleSeries;
-    volumeRef.current = volSeries;
-    emaRefs.current   = [];
+    chartRef.current     = chart;
+    candleRef.current    = candleSeries;
+    volumeRef.current    = volSeries;
+    emaRefs.current      = [];
+    markersPlugin.current = null;
 
     const ro = new ResizeObserver(() => {
       if (containerRef.current) {
@@ -156,11 +163,12 @@ export function PriceChart({
     return () => {
       ro.disconnect();
       chart.remove();
-      chartRef.current   = null;
-      candleRef.current  = null;
-      volumeRef.current  = null;
-      emaRefs.current    = [];
+      chartRef.current      = null;
+      candleRef.current     = null;
+      volumeRef.current     = null;
+      emaRefs.current       = [];
       priceLinesRef.current = [];
+      markersPlugin.current = null;
     };
   }, [height, showVolume]);
 
@@ -196,7 +204,7 @@ export function PriceChart({
     volumeRef.current.setData(coloredVol);
   }, [volume, candles]);
 
-  // Markers
+  // Markers (v5: createSeriesMarkers plugin)
   useEffect(() => {
     if (!candleRef.current) return;
     const lwMarkers: SeriesMarker<Time>[] = markers.map((m) => ({
@@ -207,7 +215,11 @@ export function PriceChart({
       text:     m.text,
       size:     1,
     }));
-    candleRef.current.setMarkers(lwMarkers);
+    if (markersPlugin.current) {
+      markersPlugin.current.setMarkers(lwMarkers);
+    } else {
+      markersPlugin.current = createSeriesMarkers(candleRef.current, lwMarkers);
+    }
   }, [markers]);
 
   // EMA lines
@@ -217,7 +229,7 @@ export function PriceChart({
     for (const s of emaRefs.current) chart.removeSeries(s);
     emaRefs.current = [];
     for (const ema of emas) {
-      const line = chart.addLineSeries({
+      const line = chart.addSeries(LineSeries, {
         color:                  ema.color,
         lineWidth:              1,
         crosshairMarkerVisible: false,

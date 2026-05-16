@@ -16,6 +16,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json() as { active: boolean };
+    if (typeof body?.active !== "boolean") {
+      return NextResponse.json({ error: "Missing or invalid 'active' field" }, { status: 400 });
+    }
     await db.update(botSettings).set({
       killSwitchActive: body.active,
       updatedAt: new Date(),

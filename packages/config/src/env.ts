@@ -16,7 +16,8 @@ function parseEnv() {
   const result = envSchema.safeParse(process.env);
   if (!result.success) {
     const issues = result.error.issues
-      .map((i) => `  ${i.path.join(".")}: ${i.message}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .map((i: any) => `  ${(i.path as PropertyKey[]).join(".")}: ${String(i.message)}`)
       .join("\n");
     throw new Error(`Invalid environment variables:\n${issues}`);
   }
