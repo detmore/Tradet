@@ -33,7 +33,7 @@ interface MarketApiData {
   openPosition: { avgEntry: string; sl: string | null; tp: string | null } | null;
 }
 
-const SYMBOLS    = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT"];
+const SYMBOLS_FALLBACK = ["BTC/USDT"];
 const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
 
 // Binance max per request = 1000.
@@ -80,15 +80,26 @@ function fmtLayerVal(v: number | boolean | string): string {
   return Math.abs(v) >= 1 ? v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : v.toFixed(4);
 }
 
+interface SymbolOverview {
+  symbol: string;
+  decision: string;
+  score: number;
+  mandatoryPassed: boolean;
+  setupPassed: boolean;
+  confirmationsPassed: boolean;
+  hasOpenPosition: boolean;
+}
+
 export function MarketContent() {
   const t = useT();
-  const [symbol,     setSymbol]     = useState("BTC/USDT");
-  const [timeframe,  setTimeframe]  = useState("15m");
-  const [candles,    setCandles]    = useState<Candle[]>([]);
-  const [marketData, setMarketData] = useState<MarketApiData | null>(null);
-  const [loading,    setLoading]    = useState(false);
-  const [error,      setError]      = useState("");
-  const [chartH,     setChartH]     = useState(400);
+  const [symbol,       setSymbol]       = useState("BTC/USDT");
+  const [timeframe,    setTimeframe]    = useState("15m");
+  const [candles,      setCandles]      = useState<Candle[]>([]);
+  const [marketData,   setMarketData]   = useState<MarketApiData | null>(null);
+  const [symbolsData,  setSymbolsData]  = useState<SymbolOverview[]>([]);
+  const [loading,      setLoading]      = useState(false);
+  const [error,        setError]        = useState("");
+  const [chartH,       setChartH]       = useState(400);
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const timerRef     = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -122,12 +133,32 @@ export function MarketContent() {
     } catch { /* silent */ }
   }, [symbol]);
 
+  const fetchSymbols = useCallback(async () => {
+    try {
+      const res = await fetch("/api/market/symbols");
+      const json = await res.json() as { symbols: SymbolOverview[] };
+      if (json.symbols?.length) {
+        setSymbolsData(json.symbols);
+        // İlk yüklemede aktif sembollerden ilkini seç
+        setSymbol(prev => {
+          const syms = json.symbols.map(s => s.symbol);
+          return syms.includes(prev) ? prev : (syms[0] ?? prev);
+        });
+      }
+    } catch { /* silent */ }
+  }, []);
+
   useEffect(() => {
+    void fetchSymbols();
     void fetchCandles();
     void fetchMarket();
-    timerRef.current = setInterval(() => { void fetchCandles(); void fetchMarket(); }, 30_000);
+    timerRef.current = setInterval(() => {
+      void fetchSymbols();
+      void fetchCandles();
+      void fetchMarket();
+    }, 30_000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [fetchCandles, fetchMarket]);
+  }, [fetchSymbols, fetchCandles, fetchMarket]);
 
   // Derived
   const last   = candles.at(-1);
@@ -162,17 +193,37 @@ export function MarketContent() {
       {/* ── Control bar ── */}
       <div style={{ display: "flex", alignItems: "stretch", height: 40, borderBottom: `1px solid ${BORDER}`, flexShrink: 0, background: "var(--bg-elevated)" }}>
 
-        {/* Symbols */}
-        <div style={{ display: "flex", alignItems: "center", gap: 3, padding: "0 10px", borderRight: `1px solid ${BORDER}` }}>
-          {SYMBOLS.map(s => {
-            const on = symbol === s;
+        {/* Symbols — aktif semboller sinyal durumu ile */}
+        <div style={{ display: "flex", alignItems: "center", gap: 1, padding: "0 6px", borderRight: `1px solid ${BORDER}` }}>
+          {(symbolsData.length ? symbolsData : SYMBOLS_FALLBACK.map(s => ({ symbol: s, decision: "—", score: 0, mandatoryPassed: false, setupPassed: false, confirmationsPassed: false, hasOpenPosition: false }))).map(sd => {
+            const on = symbol === sd.symbol;
+            const dotColor = sd.hasOpenPosition
+              ? "#f0a500"
+              : sd.decision === "buy"
+                ? "#00e676"
+                : sd.mandatoryPassed && sd.setupPassed
+                  ? "#ffab00"
+                  : "rgba(255,255,255,0.15)";
             return (
-              <button key={s} onClick={() => setSymbol(s)} style={{
-                fontFamily: "var(--font-ui)", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase",
-                padding: "3px 9px", cursor: "pointer", border: on ? "1px solid var(--accent-border)" : "1px solid transparent",
-                background: on ? "var(--accent-dim)" : "transparent", color: on ? "var(--accent)" : "var(--text-3)",
-                fontWeight: on ? 700 : 400, transition: "all 0.1s",
-              }}>{s}</button>
+              <button key={sd.symbol} onClick={() => setSymbol(sd.symbol)} style={{
+                display: "flex", flexDirection: "column", alignItems: "flex-start",
+                padding: "4px 10px", cursor: "pointer", gap: 2,
+                border: on ? "1px solid var(--accent-border)" : "1px solid transparent",
+                background: on ? "var(--accent-dim)" : "transparent",
+                transition: "all 0.1s",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: dotColor, flexShrink: 0,
+                    boxShadow: sd.decision === "buy" ? "0 0 5px #00e676" : sd.hasOpenPosition ? "0 0 5px #f0a500" : "none" }} />
+                  <span style={{ fontFamily: "var(--font-ui)", fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase",
+                    color: on ? "var(--accent)" : "var(--text-2)", fontWeight: on ? 700 : 500 }}>
+                    {sd.symbol.replace("/USDT", "")}
+                  </span>
+                </div>
+                <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: sd.score >= 60 ? "var(--positive)" : "var(--text-3)" }}>
+                  {sd.score > 0 ? Math.round(sd.score) : "—"}
+                </span>
+              </button>
             );
           })}
         </div>
