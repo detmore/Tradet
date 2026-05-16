@@ -52,9 +52,11 @@ export class BinanceAdapter implements IExchangeAdapter {
     // null = first poll; set baseline without triggering onClose to prevent spurious ticks
     // on subscription rebuild (e.g. after timeframe/symbol config change)
     let lastOpenTime: number | null = null;
+    let consecutiveErrors = 0;
     const timer = setInterval(async () => {
       try {
         const candles = await this.getOhlcv(symbol, timeframe, 2);
+        consecutiveErrors = 0; // başarılı istek — sayacı sıfırla
         const latest = candles[candles.length - 2];
         if (!latest) return;
         if (lastOpenTime === null) {
@@ -66,7 +68,14 @@ export class BinanceAdapter implements IExchangeAdapter {
           onClose(latest);
         }
       } catch (err) {
-        this.logger.error({ err, symbol, timeframe }, "Candle subscription error");
+        consecutiveErrors++;
+        // İlk 3 hata debug, sonrasında warn (flood önleme)
+        if (consecutiveErrors <= 3) {
+          this.logger.warn({ err, symbol, timeframe, consecutiveErrors }, "Candle fetch failed — retrying");
+        } else if (consecutiveErrors % 12 === 0) {
+          // Her 1 dakikada bir (12 × 5s) uyar
+          this.logger.error({ symbol, timeframe, consecutiveErrors }, `Candle feed down for ~${Math.round(consecutiveErrors * 5 / 60)} min`);
+        }
       }
     }, 5_000);
 
