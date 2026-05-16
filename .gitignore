@@ -5,6 +5,5 @@ dist/
 *.log
 .next/
 .turbo/
-pnpm-lock.yaml
 .DS_Store
 .claude/
