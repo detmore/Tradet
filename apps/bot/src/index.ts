@@ -182,6 +182,22 @@ async function main() {
       .catch((err: unknown) => { logger.error({ err }, "Config reload failed"); });
   }, 60_000);
 
+  // Cleanup: delete strategy_runs older than 7 days — runs every hour
+  const cleanupRuns = async () => {
+    try {
+      const { strategyRuns } = await import("@trade/db");
+      const { lt } = await import("drizzle-orm");
+      const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const result = await db.delete(strategyRuns).where(lt(strategyRuns.evaluatedAt, cutoff));
+      const deleted = (result as unknown as { rowCount?: number }).rowCount ?? 0;
+      if (deleted > 0) logger.info({ deleted, cutoff }, "Cleaned up old strategy runs");
+    } catch (err) {
+      logger.error({ err }, "Strategy run cleanup failed");
+    }
+  };
+  void cleanupRuns(); // ilk çalıştırma — bot başlarken eski kayıtları temizle
+  const cleanupTimer = setInterval(() => void cleanupRuns(), 60 * 60_000);
+
   logger.info({ symbols: config.symbols, timeframe: config.timeframe, mode: env.BOT_MODE }, "Bot running");
 
   // Graceful shutdown
@@ -189,6 +205,7 @@ async function main() {
     logger.info("Shutting down...");
     healthServer.stop();
     clearInterval(configReloadTimer);
+    clearInterval(cleanupTimer);
     for (const unsub of activeUnsubs) unsub();
     equity.stop();
     await lifecycle.stop();
