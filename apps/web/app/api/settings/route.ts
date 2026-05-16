@@ -1,10 +1,28 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { botSettings, strategyConfigs } from "@trade/db";
-import { FLAG_DEFAULTS, THRESHOLD_DEFAULTS, RISK_DEFAULTS, EXIT_DEFAULTS } from "@trade/config";
 import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
+
+// Defaults mirrored from @trade/config/defaults — cannot import that package
+// in Next.js because it runs parseEnv() at module load time
+const FLAG_DEFAULTS: Record<string, boolean> = {
+  useMfi: true, useCmf: true, usePivot: true, useFractal: true,
+  useAlligator: true, useHeikinAshi: true,
+  breakoutCloseConfirm: true, retestConfirm: false,
+};
+const THRESHOLD_DEFAULTS: Record<string, number | null> = {
+  scoreThreshold: 60, rsiMin: 55, rsiMax: 70, mfiMin: 50, cmfMin: 0,
+  volSmaMultiplier: 1.0, atrMin: 0, atrMax: null, emaCrossoverBars: 5,
+};
+const RISK_DEFAULTS: Record<string, number> = {
+  riskPerTrade: 0.005, maxDailyLoss: 0.02, maxOpenExposure: 0.03,
+  consecutiveLossPause: 3, cooldownDurationHours: 4,
+};
+const EXIT_DEFAULTS: Record<string, number | boolean> = {
+  slAtrMult: 1.5, tpAtrMult: 2.5, trailingEnabled: false,
+};
 
 export async function GET() {
   try {
@@ -12,8 +30,6 @@ export async function GET() {
     const [config] = await db.select().from(strategyConfigs)
       .where(eq(strategyConfigs.enabled, true)).limit(1);
 
-    // Merge with defaults so UI always reflects the complete, correct state
-    // (DB may have partial JSONB if config was seeded before defaults were finalized)
     const mergedConfig = config ? {
       ...config,
       flags:      { ...FLAG_DEFAULTS,      ...(config.flags      as object) },
