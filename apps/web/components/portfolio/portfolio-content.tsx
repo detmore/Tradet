@@ -1,0 +1,128 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useSse } from "@/hooks/use-sse";
+import { formatCurrency } from "@/lib/api";
+import { MiniEquityChart } from "@/components/charts/mini-equity-chart";
+import { useT } from "@/lib/i18n";
+
+interface Position {
+  id: string; symbol: string; side: string; qty: string;
+  avgEntry: string; sl: string | null; tp: string | null;
+  openedAt: string; mode: string;
+}
+interface EquityPoint { takenAt: string; totalBalance: string }
+interface PortfolioData {
+  openPositions: Position[]; equityHistory: EquityPoint[];
+  currentBalance: string; mode: string;
+}
+
+export function PortfolioContent() {
+  const [data, setData] = useState<PortfolioData | null>(null);
+  const t = useT();
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/portfolio");
+      setData(await res.json() as PortfolioData);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+  useSse(e => {
+    if (e["type"] === "position_opened" || e["type"] === "position_closed") void load();
+  });
+
+  const balance = parseFloat(data?.currentBalance ?? "0");
+  const isPaper = data?.mode === "paper";
+  const openCount = data?.openPositions.length ?? 0;
+
+  return (
+    <div style={{ padding: "1px", display: "flex", flexDirection: "column", gap: 1, background: "rgba(255,255,255,0.06)" }}>
+
+      {/* ── TOP ROW ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "180px 180px 1fr", gap: 1, background: "rgba(255,255,255,0.06)" }}>
+
+        <StatTile label={t("portfolio.balance")} value={`$${formatCurrency(balance)}`} color="var(--text-1)" accent />
+        <StatTile label={t("portfolio.open_positions")} value={String(openCount)} color={openCount > 0 ? "var(--accent)" : "var(--text-2)"} sub={isPaper ? t("common.paper") : t("common.live")} subColor={isPaper ? "var(--accent)" : "var(--negative)"} />
+
+        {/* Equity chart */}
+        <div style={{ background: "var(--bg-surface)", padding: "14px 18px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <span style={{ fontFamily: "var(--font-display)", fontSize: 14, letterSpacing: "0.14em", color: "var(--text-1)" }}>{t("portfolio.equity_history").toUpperCase()}</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-3)" }}>{data?.equityHistory.length ?? 0} pts</span>
+          </div>
+          <div className="rule-amber" style={{ marginBottom: 12 }} />
+          <MiniEquityChart data={data?.equityHistory ?? []} height={100} />
+        </div>
+      </div>
+
+      {/* ── POSITIONS TABLE ── */}
+      <div style={{ background: "var(--bg-surface)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 16px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <span style={{ fontFamily: "var(--font-display)", fontSize: 16, letterSpacing: "0.14em", color: "var(--text-1)" }}>{t("portfolio.open_positions").toUpperCase()}</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-3)" }}>{openCount} {t("portfolio.active")}</span>
+        </div>
+
+        {openCount === 0 ? (
+          <div style={{ padding: "32px 16px", textAlign: "center", fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--text-3)", letterSpacing: "0.08em" }}>
+            {t("portfolio.no_positions")}
+          </div>
+        ) : (
+          <table className="bb-table" style={{ width: "100%" }}>
+            <thead>
+              <tr>
+                {([t("table.symbol"), t("table.side"), t("table.qty"), t("table.entry"), t("table.sl"), t("table.tp"), t("table.opened")]).map(h => (
+                  <th key={h}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data!.openPositions.map(p => {
+                const isLong = p.side === "buy";
+                return (
+                  <tr key={p.id}>
+                    <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--text-1)" }}>{p.symbol}</td>
+                    <td>
+                      <span style={{ fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, letterSpacing: "0.10em", color: isLong ? "var(--positive)" : "var(--negative)" }}>
+                        {p.side.toUpperCase()}
+                      </span>
+                    </td>
+                    <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-2)" }}>{p.qty}</td>
+                    <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-1)" }}>${formatCurrency(p.avgEntry)}</td>
+                    <td style={{ fontFamily: "var(--font-mono)", color: p.sl ? "var(--negative)" : "var(--text-3)" }}>
+                      {p.sl ? `$${formatCurrency(p.sl)}` : "—"}
+                    </td>
+                    <td style={{ fontFamily: "var(--font-mono)", color: p.tp ? "var(--positive)" : "var(--text-3)" }}>
+                      {p.tp ? `$${formatCurrency(p.tp)}` : "—"}
+                    </td>
+                    <td style={{ fontFamily: "var(--font-ui)", fontSize: 11, color: "var(--text-3)" }}>
+                      {new Date(p.openedAt).toLocaleString("tr-TR", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatTile({ label, value, color, sub, subColor, accent }: {
+  label: string; value: string; color: string;
+  sub?: string; subColor?: string; accent?: boolean;
+}) {
+  return (
+    <div style={{ background: "var(--bg-surface)", padding: "14px 16px", position: "relative" }}>
+      {accent && <>
+        <span style={{ position: "absolute", top: 0, left: 0, width: 20, height: 1, background: "var(--accent)" }} />
+        <span style={{ position: "absolute", top: 0, left: 0, width: 1, height: 20, background: "var(--accent)" }} />
+      </>}
+      <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--text-3)", marginBottom: 6, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontFamily: "var(--font-mono)", fontSize: 22, lineHeight: 1, color, fontWeight: 600, marginBottom: 4 }}>{value}</div>
+      {sub && <div style={{ fontFamily: "var(--font-ui)", fontSize: 10, color: subColor ?? "var(--text-3)" }}>{sub}</div>}
+    </div>
+  );
+}

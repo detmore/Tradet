@@ -1,0 +1,144 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg:          #0c0c0d;
+    --bg-surface:  #141416;
+    --bg-elevated: #1a1a1e;
+    --bg-hover:    #1f1f24;
+    --border:      rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.14);
+    --accent:      #f0a500;
+    --accent-dim:  rgba(240,165,0,0.10);
+    --accent-border: rgba(240,165,0,0.25);
+    --positive:    #00e676;
+    --positive-dim: rgba(0,230,118,0.10);
+    --negative:    #ff3b3b;
+    --negative-dim: rgba(255,59,59,0.10);
+    --warning:     #ffab00;
+    --text-1: #f5f5f4;
+    --text-2: #a8a29e;
+    --text-3: #57534e;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-ui:      'Barlow Condensed', sans-serif;
+    --font-mono:    'JetBrains Mono', monospace;
+    --font-body:    'IBM Plex Sans', sans-serif;
+    /* shadcn compat */
+    --background: 0 0% 5%;
+    --foreground: 40 6% 96%;
+    --card: 0 0% 8%;
+    --card-foreground: 40 6% 96%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 40 6% 96%;
+    --primary: 38 100% 47%;
+    --primary-foreground: 0 0% 5%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 40 6% 96%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 25 5% 45%;
+    --accent: 38 100% 47%;
+    --accent-foreground: 0 0% 5%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 40 6% 96%;
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
+    --ring: 38 100% 47%;
+    --radius: 0.25rem;
+  }
+}
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; @apply border-[rgba(255,255,255,0.07)]; }
+  html { font-family: 'IBM Plex Sans', sans-serif; }
+  body {
+    background: var(--bg);
+    color: var(--text-1);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+}
+
+.font-display { font-family: var(--font-display); }
+.font-ui      { font-family: var(--font-ui); }
+.font-code    { font-family: var(--font-mono); }
+
+.rule-amber { height: 1px; background: linear-gradient(90deg, var(--accent) 0%, transparent 100%); }
+
+@keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:0.3; } }
+.pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+
+@keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+.blink { animation: blink 1.2s ease-in-out infinite; }
+
+.data-table { border-collapse: collapse; width: 100%; }
+.data-table th {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: 8px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.data-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+.data-table tr:hover td { background: var(--bg-hover); }
+.data-table tr:last-child td { border-bottom: none; }
+
+/* Bloomberg panel utilities */
+.bb-panel { background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.07); }
+.bb-panel-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.bb-table { width: 100%; border-collapse: collapse; }
+.bb-table th {
+  padding: 5px 10px;
+  font-family: var(--font-ui);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  text-align: left;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.bb-table td {
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: var(--text-1);
+}
+.bb-table tr:hover td { background: var(--bg-hover); }
+.up   { color: var(--positive) !important; }
+.down { color: var(--negative) !important; }
+.acc  { color: var(--accent) !important; }
+.dim  { color: var(--text-3) !important; }
