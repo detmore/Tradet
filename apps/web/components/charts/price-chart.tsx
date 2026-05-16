@@ -79,6 +79,16 @@ export function PriceChart({
     const chart = createChart(containerRef.current, {
       width:  containerRef.current.clientWidth,
       height,
+      localization: {
+        timeFormatter: (timestamp: number) =>
+          new Date(timestamp * 1000).toLocaleTimeString("tr-TR", {
+            timeZone: "Europe/Istanbul",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }),
+        dateFormat: "dd MMM",
+      },
       layout: {
         background: { type: ColorType.Solid, color: "#0c0c0d" },
         textColor:  "#57534e",
