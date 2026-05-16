@@ -13,9 +13,9 @@ export function computePositionSize(
 
   const riskBasedQty = riskAmount / slDistance;
 
-  // balanceCap: fee dahil fill cost bakiyeyi geçmesin
+  // balanceCap: fee + floating point hatalarından korunmak için %0.05 marj bırak
   // qty * price * (1 + fee) <= balance  →  qty <= balance / (price * (1 + fee))
-  const balanceCap = balance / (entryPrice * (1 + TAKER_FEE));
+  const balanceCap = (balance * 0.9995) / (entryPrice * (1 + TAKER_FEE));
 
   return Math.min(riskBasedQty, balanceCap);
 }
