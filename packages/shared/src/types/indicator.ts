@@ -28,4 +28,5 @@ export interface IndicatorSnapshot {
   isBullishFractalBreakout?: boolean;
   pivotLevels?: PivotLevels;
   ema2050CrossoverBarsAgo?: number;
+  retestValid?: boolean;
 }

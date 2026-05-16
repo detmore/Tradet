@@ -32,6 +32,7 @@ export type LayerName =
   | "mfi_confirmation"
   | "cmf_confirmation"
   | "breakout_confirmation"
+  | "retest_confirmation"
   | "fractal_structure"
   | "alligator_structure"
   | "heikin_ashi_structure";

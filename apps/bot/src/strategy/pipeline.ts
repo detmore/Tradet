@@ -7,6 +7,7 @@ import { confirmRsi } from "./confirmations/rsi.js";
 import { confirmMfi } from "./confirmations/mfi.js";
 import { confirmCmf } from "./confirmations/cmf.js";
 import { confirmBreakout } from "./confirmations/breakout.js";
+import { confirmRetest } from "./confirmations/retest.js";
 import { structureFractal } from "./structure/fractal.js";
 import { structureAlligator } from "./structure/alligator.js";
 import { structureHeikinAshi } from "./structure/heikinAshi.js";
@@ -39,6 +40,7 @@ export class StrategyPipeline {
     const confirmMfiResult      = flags.useMfi     ? confirmMfi(ctx)      : null;
     const confirmCmfResult      = flags.useCmf     ? confirmCmf(ctx)      : null;
     const confirmBreakoutResult = flags.usePivot   ? confirmBreakout(ctx) : null;
+    const confirmRetestResult   = (flags.usePivot && flags.retestConfirm) ? confirmRetest(ctx) : null;
 
     // Layer D: Quality/structure — always evaluated
     const fractalResult    = flags.useFractal    ? structureFractal(ctx)    : null;
@@ -55,12 +57,13 @@ export class StrategyPipeline {
       ...(confirmMfiResult      ? [confirmMfiResult]      : []),
       ...(confirmCmfResult      ? [confirmCmfResult]      : []),
       ...(confirmBreakoutResult ? [confirmBreakoutResult] : []),
+      ...(confirmRetestResult   ? [confirmRetestResult]   : []),
       ...(fractalResult         ? [fractalResult]         : []),
       ...(alligatorResult       ? [alligatorResult]       : []),
       ...(heikinAshiResult      ? [heikinAshiResult]      : []),
     ];
 
-    const confirmations  = [confirmRsiResult, confirmMfiResult, confirmCmfResult, confirmBreakoutResult].filter(Boolean);
+    const confirmations  = [confirmRsiResult, confirmMfiResult, confirmCmfResult, confirmBreakoutResult, confirmRetestResult].filter(Boolean);
     const qualityFilters = [fractalResult, alligatorResult, heikinAshiResult].filter(Boolean);
     const confirmationsPassed = confirmations.some((r) => r!.passed);
     const structurePassed     = qualityFilters.length === 0 || qualityFilters.some((r) => r!.passed);

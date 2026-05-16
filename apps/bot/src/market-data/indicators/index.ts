@@ -78,5 +78,22 @@ export function computeAllIndicators(candles: Candle[], flags: StrategyFlags): I
     }
   }
 
+  if (flags.usePivot && flags.retestConfirm && snapshot.pivotLevels) {
+    const r1 = snapshot.pivotLevels.r1;
+    const lookback = candles.slice(-21, -1); // son 20 mum, mevcut hariç
+    const breakoutIdx = lookback.findIndex((c) => c.close > r1);
+    if (breakoutIdx !== -1 && breakoutIdx < lookback.length - 1) {
+      // Kırılım sonrası fiyat R1'e geri döndü mü? (±%0.5 tolerans)
+      const tolerance = r1 * 0.005;
+      const retestHappened = lookback.slice(breakoutIdx + 1).some(
+        (c) => c.low <= r1 + tolerance
+      );
+      const currentClose = candles[candles.length - 1]?.close ?? 0;
+      snapshot.retestValid = retestHappened && currentClose > r1;
+    } else {
+      snapshot.retestValid = false;
+    }
+  }
+
   return snapshot;
 }
