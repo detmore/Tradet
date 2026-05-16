@@ -1,3 +1,5 @@
+const TAKER_FEE = 0.001; // %0.1 Binance spot taker fee
+
 export function computePositionSize(
   balance: number,
   riskPercent: number,
@@ -10,8 +12,10 @@ export function computePositionSize(
   if (slDistance === 0 || entryPrice === 0) return 0;
 
   const riskBasedQty = riskAmount / slDistance;
-  // Tek güvence: bakiyenden fazla BTC alamazsın (spot için zorunlu)
-  const balanceCap   = balance / entryPrice;
+
+  // balanceCap: fee dahil fill cost bakiyeyi geçmesin
+  // qty * price * (1 + fee) <= balance  →  qty <= balance / (price * (1 + fee))
+  const balanceCap = balance / (entryPrice * (1 + TAKER_FEE));
 
   return Math.min(riskBasedQty, balanceCap);
 }
