@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { PriceChart } from "@/components/charts/price-chart";
 import type { CandlestickData, HistogramData, Time } from "lightweight-charts";
 import { useT } from "@/lib/i18n";
+import { useSse } from "@/hooks/use-sse";
 
 interface Candle {
   time: number;
@@ -148,13 +149,21 @@ export function MarketContent() {
     } catch { /* silent */ }
   }, []);
 
+  // SSE: bot her tick'te strategy_evaluated gönderiyor — anında refresh
+  useSse(useCallback((event) => {
+    if (event["type"] === "trade_event") {
+      void fetchMarket();
+      void fetchSymbols();
+    }
+  }, [fetchMarket, fetchSymbols]));
+
   useEffect(() => {
     void fetchSymbols();
     void fetchCandles();
     void fetchMarket();
+    // Fallback polling: SSE çalışmıyorsa veya chart verisi için
     timerRef.current = setInterval(() => {
       void fetchSymbols();
-      void fetchCandles();
       void fetchMarket();
     }, 30_000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };

@@ -69,6 +69,14 @@ export class EvaluationLoop {
     // Persist decision trace
     const strategyRunId = await traceWriter.write(decision, symbol, timeframe as import("@trade/shared").Timeframe, config.id);
 
+    // Dashboard'u anlık güncelle — her tick'te notify gönder
+    void notify.publish("trade_events", {
+      type: "strategy_evaluated",
+      symbol,
+      decision: decision.action,
+      score: decision.score,
+    });
+
     if (decision.action !== "buy") {
       logger.debug({ symbol, decision: decision.action, score: decision.score }, "No trade signal");
       return;
