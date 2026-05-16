@@ -150,7 +150,7 @@ export function MarketContent() {
     } catch { /* silent */ }
   }, []);
 
-  // SSE: bot her tick'te strategy_evaluated gönderiyor — anında refresh
+  // SSE: bot her tick'te strategy_evaluated gönderiyor — sinyal ve semboller anında yenilenir
   useSse(useCallback((event) => {
     if (event["type"] === "trade_event") {
       void fetchMarket();
@@ -162,8 +162,9 @@ export function MarketContent() {
     void fetchSymbols();
     void fetchCandles();
     void fetchMarket();
-    // Fallback polling: SSE çalışmıyorsa veya chart verisi için
+    // Mumlar her 30s, sinyal/semboller SSE ile anında güncelleniyor
     timerRef.current = setInterval(() => {
+      void fetchCandles();
       void fetchSymbols();
       void fetchMarket();
     }, 30_000);
