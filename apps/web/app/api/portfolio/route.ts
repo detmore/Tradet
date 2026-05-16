@@ -26,7 +26,9 @@ export async function GET() {
     return NextResponse.json({
       openPositions,
       equityHistory: equityHistory.reverse(),
-      currentBalance: settings?.paperCurrentBalance ?? "0",
+      currentBalance: mode === "live"
+        ? (settings?.paperCurrentBalance ?? "0") // TODO: replace with live account balance from exchange
+        : (settings?.paperCurrentBalance ?? "0"),
       mode,
     });
   } catch {

@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, numeric, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, numeric, timestamp, index } from "drizzle-orm/pg-core";
 
 export const positions = pgTable("positions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -14,7 +14,10 @@ export const positions = pgTable("positions", {
   tp: numeric("tp", { precision: 20, scale: 8 }),
   trailingSl: numeric("trailing_sl", { precision: 20, scale: 8 }),
   strategyRunId: uuid("strategy_run_id"),
-});
+}, (t) => [
+  index("idx_positions_status_mode").on(t.status, t.mode),
+  index("idx_positions_symbol_status_mode").on(t.symbol, t.status, t.mode),
+]);
 
 export type PositionRow = typeof positions.$inferSelect;
 export type PositionInsert = typeof positions.$inferInsert;

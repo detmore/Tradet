@@ -17,8 +17,10 @@ export async function GET() {
       .orderBy(desc(equitySnapshots.takenAt))
       .limit(1);
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    // Istanbul timezone (UTC+3) — midnight local time
+    const todayStart = new Date(
+      new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Istanbul" }) + "T00:00:00+03:00"
+    );
 
     const todayTrades = await db
       .select({ realizedPnl: trades.realizedPnl })

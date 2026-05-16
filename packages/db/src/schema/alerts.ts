@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, jsonb, index } from "drizzle-orm/pg-core";
 
 export const alerts = pgTable("alerts", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -10,7 +10,10 @@ export const alerts = pgTable("alerts", {
   sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   channel: text("channel").notNull().default("internal"), // telegram|internal
   deliveryStatus: text("delivery_status").notNull().default("pending"), // pending|sent|failed
-});
+}, (t) => [
+  index("idx_alerts_sent_at").on(t.sentAt),
+  index("idx_alerts_category").on(t.category),
+]);
 
 export type AlertRow = typeof alerts.$inferSelect;
 export type AlertInsert = typeof alerts.$inferInsert;

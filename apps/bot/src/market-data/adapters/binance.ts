@@ -42,14 +42,20 @@ export class BinanceAdapter implements IExchangeAdapter {
     timeframe: Timeframe,
     onClose: (candle: Candle) => void
   ): () => void {
-    // WS subscription via polling for now (ccxt pro needed for true WS)
-    // In Phase 3 this will use ccxt.pro watchOHLCV
-    let lastOpenTime = 0;
+    // Polling-based subscription (ccxt pro needed for true WebSocket)
+    // null = first poll; set baseline without triggering onClose to prevent spurious ticks
+    // on subscription rebuild (e.g. after timeframe/symbol config change)
+    let lastOpenTime: number | null = null;
     const timer = setInterval(async () => {
       try {
         const candles = await this.getOhlcv(symbol, timeframe, 2);
         const latest = candles[candles.length - 2];
-        if (latest && latest.openTime !== lastOpenTime) {
+        if (!latest) return;
+        if (lastOpenTime === null) {
+          lastOpenTime = latest.openTime; // baseline — no callback
+          return;
+        }
+        if (latest.openTime !== lastOpenTime) {
           lastOpenTime = latest.openTime;
           onClose(latest);
         }

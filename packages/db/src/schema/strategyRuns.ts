@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, numeric, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, numeric, boolean, timestamp, jsonb, index } from "drizzle-orm/pg-core";
 
 export const strategyRuns = pgTable("strategy_runs", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -15,7 +15,9 @@ export const strategyRuns = pgTable("strategy_runs", {
   structurePassed: boolean("structure_passed").notNull().default(false),
   riskApproved: boolean("risk_approved"),
   riskRejectionReason: text("risk_rejection_reason"),
-});
+}, (t) => [
+  index("idx_strategy_runs_symbol_evaluated_at").on(t.symbol, t.evaluatedAt),
+]);
 
 export type StrategyRunRow = typeof strategyRuns.$inferSelect;
 export type StrategyRunInsert = typeof strategyRuns.$inferInsert;
