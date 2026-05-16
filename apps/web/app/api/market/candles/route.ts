@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const url = `https://api.binance.com/api/v3/klines?symbol=${binanceSym}&interval=${interval}&limit=${limit}`;
-    const res = await fetch(url, { next: { revalidate: 10 } });
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`Binance ${res.status}`);
 
     const raw = await res.json() as number[][];
