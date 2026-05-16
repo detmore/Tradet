@@ -1,10 +1,13 @@
+const FEE_RATE = 0.001;
+
 export function computeRealizedPnl(
   entryPrice: number,
   exitPrice: number,
   qty: number,
-  fees: number
+  exitFees: number
 ): number {
-  return (exitPrice - entryPrice) * qty - fees;
+  const entryFee = entryPrice * qty * FEE_RATE;
+  return (exitPrice - entryPrice) * qty - exitFees - entryFee;
 }
 
 export function computeUnrealizedPnl(

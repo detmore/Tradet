@@ -72,12 +72,12 @@ export class EvaluationLoop {
       return;
     }
 
-    // Guard: do not open a second position for the same symbol while one is already open
+    // Guard: do not open a second position for the same symbol/mode while one is already open
     const { positions: positionsTable, botSettings } = await import("@trade/db");
     const existing = await db
       .select({ id: positionsTable.id })
       .from(positionsTable)
-      .where(and(eq(positionsTable.symbol, symbol), eq(positionsTable.status, "open")))
+      .where(and(eq(positionsTable.symbol, symbol), eq(positionsTable.status, "open"), eq(positionsTable.mode, this.mode)))
       .limit(1);
     if (existing.length > 0) {
       logger.debug({ symbol }, "Position already open — skipping new entry");
@@ -176,7 +176,7 @@ export class EvaluationLoop {
     const openPositions = await db
       .select()
       .from(positionsTable)
-      .where(and(eq(positionsTable.symbol, symbol), eq(positionsTable.status, "open")));
+      .where(and(eq(positionsTable.symbol, symbol), eq(positionsTable.status, "open"), eq(positionsTable.mode, this.mode)));
 
     if (openPositions.length === 0) return;
 
@@ -244,7 +244,12 @@ export class EvaluationLoop {
         decisionScore = runRows[0]?.score ?? undefined;
       }
 
-      await positions.closePosition(exitSignal.positionId, exitSignal.exitPrice, exitSignal.reason, fee, decisionScore);
+      try {
+        await positions.closePosition(exitSignal.positionId, exitSignal.exitPrice, exitSignal.reason, fee, decisionScore);
+      } catch (err) {
+        logger.error({ err, positionId: exitSignal.positionId }, "Failed to close position — skipping");
+        continue;
+      }
 
       // Update risk trackers
       const closePnl = (exitPriceNum - parseFloat(pos.avgEntry)) * qtyNum - parseFloat(fee);
