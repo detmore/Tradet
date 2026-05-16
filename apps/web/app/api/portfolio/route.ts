@@ -27,7 +27,7 @@ export async function GET() {
       openPositions,
       equityHistory: equityHistory.reverse(),
       currentBalance: mode === "live"
-        ? (settings?.paperCurrentBalance ?? "0") // TODO: replace with live account balance from exchange
+        ? (settings?.liveCurrentBalance ?? "0")
         : (settings?.paperCurrentBalance ?? "0"),
       mode,
     });

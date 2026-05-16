@@ -89,9 +89,12 @@ export class EvaluationLoop {
     const settings = settingsRows[0];
     if (!settings || settings.killSwitchActive) return;
 
-    const balance = parseFloat(settings.paperCurrentBalance ?? "0");
+    const rawBalance = this.mode === "live"
+      ? settings.liveCurrentBalance
+      : settings.paperCurrentBalance;
+    const balance = parseFloat(rawBalance ?? "0");
     if (isNaN(balance) || balance <= 0) {
-      logger.warn({ symbol }, "Invalid balance — skipping trade");
+      logger.warn({ symbol, mode: this.mode }, "Invalid balance — skipping trade");
       return;
     }
     const currentPrice = String(latestCandle.close);
@@ -138,11 +141,14 @@ export class EvaluationLoop {
     const openNotional = parseFloat(fill.price) * parseFloat(fill.qty);
     approver.onPositionOpened(openNotional);
 
-    // Update paper balance (deduct fill cost from available balance)
-    const fillCost = parseFloat(fill.price) * parseFloat(fill.qty) + parseFloat(fill.fee);
-    await db.update(botSettings).set({
-      paperCurrentBalance: String((balance - fillCost).toFixed(8)),
-    }).where(eq(botSettings.id, settings.id));
+    // Paper mode only: deduct fill cost from tracked balance
+    // Live mode: balance is synced from exchange, no manual deduction needed
+    if (this.mode === "paper") {
+      const fillCost = parseFloat(fill.price) * parseFloat(fill.qty) + parseFloat(fill.fee);
+      await db.update(botSettings).set({
+        paperCurrentBalance: String((balance - fillCost).toFixed(8)),
+      }).where(eq(botSettings.id, settings.id));
+    }
 
     // Notify dashboard
     await notify.publish("trade_events", {
@@ -261,14 +267,17 @@ export class EvaluationLoop {
         config.risk.cooldownDurationHours
       );
 
-      // Restore balance using exit price (not current candle close)
-      const settingsRows = await db.select().from(botSettings).limit(1);
-      const exitSettings = settingsRows[0];
-      if (exitSettings) {
-        const proceeds = exitPriceNum * qtyNum - parseFloat(fee);
-        await db.update(botSettings).set({
-          paperCurrentBalance: String((parseFloat(exitSettings.paperCurrentBalance) + proceeds).toFixed(8)),
-        }).where(eq(botSettings.id, exitSettings.id));
+      // Paper mode only: restore balance from exit proceeds
+      // Live mode: balance synced from exchange automatically
+      if (this.mode === "paper") {
+        const settingsRows = await db.select().from(botSettings).limit(1);
+        const exitSettings = settingsRows[0];
+        if (exitSettings) {
+          const proceeds = exitPriceNum * qtyNum - parseFloat(fee);
+          await db.update(botSettings).set({
+            paperCurrentBalance: String((parseFloat(exitSettings.paperCurrentBalance) + proceeds).toFixed(8)),
+          }).where(eq(botSettings.id, exitSettings.id));
+        }
       }
 
       await notify.publish("trade_events", {

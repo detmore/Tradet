@@ -182,6 +182,25 @@ async function main() {
       .catch((err: unknown) => { logger.error({ err }, "Config reload failed"); });
   }, 60_000);
 
+  // Live mode: sync exchange USDT balance to DB every 5 minutes
+  let balanceSyncTimer: NodeJS.Timeout | undefined;
+  if (env.BOT_MODE === "live") {
+    const syncLiveBalance = async () => {
+      try {
+        const { botSettings: bs } = await import("@trade/db");
+        const { eq } = await import("drizzle-orm");
+        const liveBalance = await exchange.getAccountBalance("USDT");
+        await db.update(bs).set({ liveCurrentBalance: liveBalance, updatedAt: new Date() })
+          .where(eq(bs.id, 1));
+        logger.info({ liveBalance }, "Live balance synced from exchange");
+      } catch (err) {
+        logger.error({ err }, "Live balance sync failed");
+      }
+    };
+    void syncLiveBalance();
+    balanceSyncTimer = setInterval(() => void syncLiveBalance(), 5 * 60_000);
+  }
+
   // Cleanup: delete strategy_runs older than 7 days — runs every hour
   const cleanupRuns = async () => {
     try {
@@ -206,6 +225,7 @@ async function main() {
     healthServer.stop();
     clearInterval(configReloadTimer);
     clearInterval(cleanupTimer);
+    if (balanceSyncTimer) clearInterval(balanceSyncTimer);
     for (const unsub of activeUnsubs) unsub();
     equity.stop();
     await lifecycle.stop();

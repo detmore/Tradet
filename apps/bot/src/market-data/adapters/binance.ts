@@ -37,6 +37,12 @@ export class BinanceAdapter implements IExchangeAdapter {
     return String(ticker.last ?? ticker.close ?? 0);
   }
 
+  async getAccountBalance(asset: string = "USDT"): Promise<string> {
+    const balance = await this.exchange.fetchBalance();
+    const total = ((balance.total as unknown) as Record<string, number | undefined>)[asset] ?? 0;
+    return String(total);
+  }
+
   subscribeToCandles(
     symbol: string,
     timeframe: Timeframe,

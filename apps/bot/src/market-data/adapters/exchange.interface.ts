@@ -12,6 +12,7 @@ export interface SymbolInfo {
 export interface IExchangeAdapter {
   getOhlcv(symbol: string, timeframe: Timeframe, limit: number): Promise<Candle[]>;
   getLatestPrice(symbol: string): Promise<string>;
+  getAccountBalance(asset: string): Promise<string>;
   subscribeToCandles(
     symbol: string,
     timeframe: Timeframe,

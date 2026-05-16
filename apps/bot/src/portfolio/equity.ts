@@ -44,10 +44,14 @@ export class EquityService {
     // Set to 0 here — the dashboard reads live price via Binance and can compute it client-side.
     const unrealizedPnl = 0;
 
+    const currentBalance = this.mode === "live"
+      ? (settings.liveCurrentBalance ?? settings.paperCurrentBalance)
+      : settings.paperCurrentBalance;
+
     await this.db.insert(equitySnapshots).values({
       mode: this.mode,
-      totalBalance: settings.paperCurrentBalance,
-      availableBalance: settings.paperCurrentBalance,
+      totalBalance: currentBalance,
+      availableBalance: currentBalance,
       unrealizedPnl: unrealizedPnl.toFixed(8),
       realizedPnlCum,
       openPositionsCount: openPositions.length,
