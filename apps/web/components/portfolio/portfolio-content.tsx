@@ -10,7 +10,10 @@ interface Position {
   id: string; symbol: string; side: string; qty: string;
   avgEntry: string; sl: string | null; tp: string | null;
   openedAt: string; mode: string;
-  currentPrice: string; unrealizedPnl: string; positionValue: string;
+  currentPrice: string | null;
+  unrealizedPnl: string | null;
+  positionValue: string;
+  priceFetched: boolean;
 }
 interface EquityPoint { takenAt: string; totalBalance: string }
 interface PortfolioData {
@@ -18,9 +21,16 @@ interface PortfolioData {
   equityHistory: EquityPoint[];
   availableBalance: string;
   totalPositionValue: string;
-  totalUnrealizedPnl: string;
+  totalUnrealizedPnl: string | null;
   totalValue: string;
   mode: string;
+}
+
+/** Show P&L with enough precision — at least 4 decimals for sub-cent values */
+function formatPnl(value: number): string {
+  const abs = Math.abs(value);
+  const decimals = abs < 0.01 ? 4 : 2;
+  return formatCurrency(abs, decimals);
 }
 
 export function PortfolioContent() {
@@ -35,7 +45,6 @@ export function PortfolioContent() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
-  // Refresh every 30s and on position events
   useEffect(() => {
     const id = setInterval(() => void load(), 30_000);
     return () => clearInterval(id);
@@ -47,11 +56,17 @@ export function PortfolioContent() {
   const totalValue = parseFloat(data?.totalValue ?? "0");
   const availableBalance = parseFloat(data?.availableBalance ?? "0");
   const totalPositionValue = parseFloat(data?.totalPositionValue ?? "0");
-  const totalUnrealizedPnl = parseFloat(data?.totalUnrealizedPnl ?? "0");
+  const rawPnl = data?.totalUnrealizedPnl;
+  const totalUnrealizedPnl = rawPnl !== null && rawPnl !== undefined ? parseFloat(rawPnl) : null;
   const isPaper = data?.mode === "paper";
   const openCount = data?.openPositions.length ?? 0;
-  const pnlColor = totalUnrealizedPnl >= 0 ? "var(--positive)" : "var(--negative)";
-  const pnlSign = totalUnrealizedPnl >= 0 ? "+" : "";
+  const pnlColor = (totalUnrealizedPnl ?? 0) >= 0 ? "var(--positive)" : "var(--negative)";
+  const pnlSign = (totalUnrealizedPnl ?? 0) >= 0 ? "+" : "";
+
+  // P&L tile value: "—" if price unavailable, formatted amount otherwise
+  const pnlDisplay = totalUnrealizedPnl === null
+    ? "—"
+    : `${pnlSign}$${formatPnl(totalUnrealizedPnl)}`;
 
   return (
     <div style={{ padding: "1px", display: "flex", flexDirection: "column", gap: 1, background: "rgba(255,255,255,0.06)" }}>
@@ -79,8 +94,8 @@ export function PortfolioContent() {
         />
         <StatTile
           label={t("portfolio.unrealized_pnl")}
-          value={`${pnlSign}$${formatCurrency(Math.abs(totalUnrealizedPnl))}`}
-          color={openCount > 0 ? pnlColor : "var(--text-3)"}
+          value={pnlDisplay}
+          color={totalUnrealizedPnl === null ? "var(--text-3)" : openCount > 0 ? pnlColor : "var(--text-3)"}
           sub={openCount > 0 ? `${openCount} ${t("portfolio.active")}` : undefined}
         />
 
@@ -118,11 +133,11 @@ export function PortfolioContent() {
             <tbody>
               {data!.openPositions.map(p => {
                 const isLong = p.side === "buy";
-                const pnl = parseFloat(p.unrealizedPnl);
+                const pnl = p.unrealizedPnl !== null ? parseFloat(p.unrealizedPnl) : null;
                 const posValue = parseFloat(p.positionValue);
-                const currentPx = parseFloat(p.currentPrice);
-                const posPnlColor = pnl >= 0 ? "var(--positive)" : "var(--negative)";
-                const posPnlSign = pnl >= 0 ? "+" : "";
+                const currentPx = p.currentPrice !== null ? parseFloat(p.currentPrice) : null;
+                const posPnlColor = (pnl ?? 0) >= 0 ? "var(--positive)" : "var(--negative)";
+                const posPnlSign = (pnl ?? 0) >= 0 ? "+" : "";
                 return (
                   <tr key={p.id}>
                     <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--text-1)" }}>{p.symbol}</td>
@@ -134,13 +149,13 @@ export function PortfolioContent() {
                     <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-2)" }}>{p.qty}</td>
                     <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-1)" }}>${formatCurrency(p.avgEntry)}</td>
                     <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-1)" }}>
-                      {currentPx > 0 ? `$${formatCurrency(currentPx)}` : "—"}
+                      {currentPx !== null ? `$${formatCurrency(currentPx)}` : "—"}
                     </td>
-                    <td style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: currentPx > 0 ? posPnlColor : "var(--text-3)" }}>
-                      {currentPx > 0 ? `${posPnlSign}$${formatCurrency(Math.abs(pnl))}` : "—"}
+                    <td style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: pnl !== null ? posPnlColor : "var(--text-3)" }}>
+                      {pnl !== null ? `${posPnlSign}$${formatPnl(pnl)}` : "—"}
                     </td>
                     <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-2)" }}>
-                      {currentPx > 0 ? `$${formatCurrency(posValue)}` : "—"}
+                      {`$${formatCurrency(posValue)}`}
                     </td>
                     <td style={{ fontFamily: "var(--font-mono)", color: p.sl ? "var(--negative)" : "var(--text-3)" }}>
                       {p.sl ? `$${formatCurrency(p.sl)}` : "—"}

@@ -5,19 +5,21 @@ import { eq, desc, and } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-async function fetchCurrentPrices(symbols: string[]): Promise<Record<string, number>> {
-  const prices: Record<string, number> = {};
+async function fetchCurrentPrices(symbols: string[]): Promise<Record<string, number | null>> {
+  const prices: Record<string, number | null> = {};
   await Promise.all(
     symbols.map(async (sym) => {
       try {
         const res = await fetch(
           `https://api.binance.com/api/v3/ticker/price?symbol=${sym}`,
-          { cache: "no-store" }
+          { cache: "no-store", signal: AbortSignal.timeout(5000) }
         );
-        const data = await res.json() as { price: string };
-        prices[sym] = parseFloat(data.price);
+        if (!res.ok) { prices[sym] = null; return; }
+        const data = await res.json() as { price?: string };
+        const p = parseFloat(data.price ?? "");
+        prices[sym] = isNaN(p) || p <= 0 ? null : p;
       } catch {
-        prices[sym] = 0;
+        prices[sym] = null;
       }
     })
   );
@@ -48,22 +50,23 @@ export async function GET() {
         : (settings?.paperCurrentBalance ?? "0")
     );
 
-    // Fetch live prices for open positions
     const symbols = [...new Set(openPositions.map((p) => p.symbol))];
     const prices = symbols.length > 0 ? await fetchCurrentPrices(symbols) : {};
 
-    // Enrich positions with current price + unrealized P&L
     const enrichedPositions = openPositions.map((p) => {
-      const currentPrice = prices[p.symbol] ?? 0;
+      const currentPrice = prices[p.symbol] ?? null;
       const qty = parseFloat(p.qty);
       const entry = parseFloat(p.avgEntry);
-      const unrealizedPnl = currentPrice > 0 ? (currentPrice - entry) * qty : 0;
-      const positionValue = currentPrice > 0 ? qty * currentPrice : qty * entry;
+      const hasPrice = currentPrice !== null && currentPrice > 0;
+      const unrealizedPnl = hasPrice ? (currentPrice! - entry) * qty : null;
+      // position value: current market value if price known, else cost basis
+      const positionValue = hasPrice ? qty * currentPrice! : qty * entry;
       return {
         ...p,
-        currentPrice: currentPrice.toFixed(8),
-        unrealizedPnl: unrealizedPnl.toFixed(8),
+        currentPrice: hasPrice ? currentPrice!.toFixed(8) : null,
+        unrealizedPnl: unrealizedPnl !== null ? unrealizedPnl.toFixed(8) : null,
         positionValue: positionValue.toFixed(8),
+        priceFetched: hasPrice,
       };
     });
 
@@ -71,10 +74,12 @@ export async function GET() {
       (sum, p) => sum + parseFloat(p.positionValue),
       0
     );
+    // Only sum unrealized P&L for positions where we have a live price
     const totalUnrealizedPnl = enrichedPositions.reduce(
-      (sum, p) => sum + parseFloat(p.unrealizedPnl),
+      (sum, p) => sum + (p.unrealizedPnl !== null ? parseFloat(p.unrealizedPnl) : 0),
       0
     );
+    const anyPriceFetched = enrichedPositions.some((p) => p.priceFetched);
     const totalValue = availableBalance + totalPositionValue;
 
     return NextResponse.json({
@@ -82,7 +87,7 @@ export async function GET() {
       equityHistory: equityHistory.reverse(),
       availableBalance: availableBalance.toFixed(8),
       totalPositionValue: totalPositionValue.toFixed(8),
-      totalUnrealizedPnl: totalUnrealizedPnl.toFixed(8),
+      totalUnrealizedPnl: anyPriceFetched ? totalUnrealizedPnl.toFixed(8) : null,
       totalValue: totalValue.toFixed(8),
       mode,
     });
