@@ -26,11 +26,18 @@ interface PortfolioData {
   mode: string;
 }
 
-/** Show P&L with enough precision — at least 4 decimals for sub-cent values */
+/** P&L dollar amount with adaptive precision */
 function formatPnl(value: number): string {
   const abs = Math.abs(value);
   const decimals = abs < 0.01 ? 4 : 2;
   return formatCurrency(abs, decimals);
+}
+
+/** P&L as percentage of entry cost */
+function pnlPct(pnl: number, entry: number, qty: number): string {
+  const cost = entry * qty;
+  if (cost === 0) return "";
+  return (pnl / cost * 100).toFixed(2) + "%";
 }
 
 export function PortfolioContent() {
@@ -63,7 +70,14 @@ export function PortfolioContent() {
   const pnlColor = (totalUnrealizedPnl ?? 0) >= 0 ? "var(--positive)" : "var(--negative)";
   const pnlSign = (totalUnrealizedPnl ?? 0) >= 0 ? "+" : "";
 
-  // P&L tile value: "—" if price unavailable, formatted amount otherwise
+  // Aggregate % across all positions (weighted by cost basis)
+  const totalCost = (data?.openPositions ?? []).reduce(
+    (s, p) => s + parseFloat(p.avgEntry) * parseFloat(p.qty), 0
+  );
+  const pnlPctTotal = totalUnrealizedPnl !== null && totalCost > 0
+    ? `${pnlSign}${(totalUnrealizedPnl / totalCost * 100).toFixed(2)}%`
+    : null;
+
   const pnlDisplay = totalUnrealizedPnl === null
     ? "—"
     : `${pnlSign}$${formatPnl(totalUnrealizedPnl)}`;
@@ -96,7 +110,8 @@ export function PortfolioContent() {
           label={t("portfolio.unrealized_pnl")}
           value={pnlDisplay}
           color={totalUnrealizedPnl === null ? "var(--text-3)" : openCount > 0 ? pnlColor : "var(--text-3)"}
-          sub={openCount > 0 ? `${openCount} ${t("portfolio.active")}` : undefined}
+          sub={pnlPctTotal ?? (openCount > 0 ? `${openCount} ${t("portfolio.active")}` : undefined)}
+          subColor={pnlPctTotal ? pnlColor : undefined}
         />
 
         {/* Equity chart */}
@@ -136,8 +151,11 @@ export function PortfolioContent() {
                 const pnl = p.unrealizedPnl !== null ? parseFloat(p.unrealizedPnl) : null;
                 const posValue = parseFloat(p.positionValue);
                 const currentPx = p.currentPrice !== null ? parseFloat(p.currentPrice) : null;
+                const entry = parseFloat(p.avgEntry);
+                const qty = parseFloat(p.qty);
                 const posPnlColor = (pnl ?? 0) >= 0 ? "var(--positive)" : "var(--negative)";
                 const posPnlSign = (pnl ?? 0) >= 0 ? "+" : "";
+                const pct = pnl !== null ? pnlPct(pnl, entry, qty) : null;
                 return (
                   <tr key={p.id}>
                     <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--text-1)" }}>{p.symbol}</td>
@@ -152,7 +170,9 @@ export function PortfolioContent() {
                       {currentPx !== null ? `$${formatCurrency(currentPx)}` : "—"}
                     </td>
                     <td style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: pnl !== null ? posPnlColor : "var(--text-3)" }}>
-                      {pnl !== null ? `${posPnlSign}$${formatPnl(pnl)}` : "—"}
+                      {pnl !== null
+                        ? <>{posPnlSign}${formatPnl(pnl)}<br /><span style={{ fontSize: 10, opacity: 0.7 }}>{posPnlSign}{pct}</span></>
+                        : "—"}
                     </td>
                     <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-2)" }}>
                       {`$${formatCurrency(posValue)}`}
