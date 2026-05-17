@@ -10,11 +10,17 @@ interface Position {
   id: string; symbol: string; side: string; qty: string;
   avgEntry: string; sl: string | null; tp: string | null;
   openedAt: string; mode: string;
+  currentPrice: string; unrealizedPnl: string; positionValue: string;
 }
 interface EquityPoint { takenAt: string; totalBalance: string }
 interface PortfolioData {
-  openPositions: Position[]; equityHistory: EquityPoint[];
-  currentBalance: string; mode: string;
+  openPositions: Position[];
+  equityHistory: EquityPoint[];
+  availableBalance: string;
+  totalPositionValue: string;
+  totalUnrealizedPnl: string;
+  totalValue: string;
+  mode: string;
 }
 
 export function PortfolioContent() {
@@ -29,22 +35,54 @@ export function PortfolioContent() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  // Refresh every 30s and on position events
+  useEffect(() => {
+    const id = setInterval(() => void load(), 30_000);
+    return () => clearInterval(id);
+  }, [load]);
   useSse(e => {
-    if (e["type"] === "position_opened" || e["type"] === "position_closed") void load();
+    if (e["type"] === "position_opened" || e["type"] === "position_closed" || e["type"] === "trade_event") void load();
   });
 
-  const balance = parseFloat(data?.currentBalance ?? "0");
+  const totalValue = parseFloat(data?.totalValue ?? "0");
+  const availableBalance = parseFloat(data?.availableBalance ?? "0");
+  const totalPositionValue = parseFloat(data?.totalPositionValue ?? "0");
+  const totalUnrealizedPnl = parseFloat(data?.totalUnrealizedPnl ?? "0");
   const isPaper = data?.mode === "paper";
   const openCount = data?.openPositions.length ?? 0;
+  const pnlColor = totalUnrealizedPnl >= 0 ? "var(--positive)" : "var(--negative)";
+  const pnlSign = totalUnrealizedPnl >= 0 ? "+" : "";
 
   return (
     <div style={{ padding: "1px", display: "flex", flexDirection: "column", gap: 1, background: "rgba(255,255,255,0.06)" }}>
 
       {/* ── TOP ROW ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "180px 180px 1fr", gap: 1, background: "rgba(255,255,255,0.06)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "200px 160px 160px 160px 1fr", gap: 1, background: "rgba(255,255,255,0.06)" }}>
 
-        <StatTile label={t("portfolio.balance")} value={`$${formatCurrency(balance)}`} color="var(--text-1)" accent />
-        <StatTile label={t("portfolio.open_positions")} value={String(openCount)} color={openCount > 0 ? "var(--accent)" : "var(--text-2)"} sub={isPaper ? t("common.paper") : t("common.live")} subColor={isPaper ? "var(--accent)" : "var(--negative)"} />
+        <StatTile
+          label={t("portfolio.total_value")}
+          value={`$${formatCurrency(totalValue)}`}
+          color="var(--text-1)"
+          sub={isPaper ? t("common.paper") : t("common.live")}
+          subColor={isPaper ? "var(--accent)" : "var(--negative)"}
+          accent
+        />
+        <StatTile
+          label={t("portfolio.available")}
+          value={`$${formatCurrency(availableBalance)}`}
+          color="var(--text-2)"
+        />
+        <StatTile
+          label={t("portfolio.in_positions")}
+          value={`$${formatCurrency(totalPositionValue)}`}
+          color={totalPositionValue > 0 ? "var(--accent)" : "var(--text-3)"}
+        />
+        <StatTile
+          label={t("portfolio.unrealized_pnl")}
+          value={`${pnlSign}$${formatCurrency(Math.abs(totalUnrealizedPnl))}`}
+          color={openCount > 0 ? pnlColor : "var(--text-3)"}
+          sub={openCount > 0 ? `${openCount} ${t("portfolio.active")}` : undefined}
+        />
 
         {/* Equity chart */}
         <div style={{ background: "var(--bg-surface)", padding: "14px 18px" }}>
@@ -72,7 +110,7 @@ export function PortfolioContent() {
           <table className="bb-table" style={{ width: "100%" }}>
             <thead>
               <tr>
-                {([t("table.symbol"), t("table.side"), t("table.qty"), t("table.entry"), t("table.sl"), t("table.tp"), t("table.opened")]).map(h => (
+                {[t("table.symbol"), t("table.side"), t("table.qty"), t("table.entry"), t("table.current"), t("table.pnl"), t("table.value"), t("table.sl"), t("table.tp"), t("table.opened")].map(h => (
                   <th key={h}>{h}</th>
                 ))}
               </tr>
@@ -80,6 +118,11 @@ export function PortfolioContent() {
             <tbody>
               {data!.openPositions.map(p => {
                 const isLong = p.side === "buy";
+                const pnl = parseFloat(p.unrealizedPnl);
+                const posValue = parseFloat(p.positionValue);
+                const currentPx = parseFloat(p.currentPrice);
+                const posPnlColor = pnl >= 0 ? "var(--positive)" : "var(--negative)";
+                const posPnlSign = pnl >= 0 ? "+" : "";
                 return (
                   <tr key={p.id}>
                     <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--text-1)" }}>{p.symbol}</td>
@@ -90,6 +133,15 @@ export function PortfolioContent() {
                     </td>
                     <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-2)" }}>{p.qty}</td>
                     <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-1)" }}>${formatCurrency(p.avgEntry)}</td>
+                    <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-1)" }}>
+                      {currentPx > 0 ? `$${formatCurrency(currentPx)}` : "—"}
+                    </td>
+                    <td style={{ fontFamily: "var(--font-mono)", fontWeight: 600, color: currentPx > 0 ? posPnlColor : "var(--text-3)" }}>
+                      {currentPx > 0 ? `${posPnlSign}$${formatCurrency(Math.abs(pnl))}` : "—"}
+                    </td>
+                    <td style={{ fontFamily: "var(--font-mono)", color: "var(--text-2)" }}>
+                      {currentPx > 0 ? `$${formatCurrency(posValue)}` : "—"}
+                    </td>
                     <td style={{ fontFamily: "var(--font-mono)", color: p.sl ? "var(--negative)" : "var(--text-3)" }}>
                       {p.sl ? `$${formatCurrency(p.sl)}` : "—"}
                     </td>
