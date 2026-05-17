@@ -51,7 +51,15 @@ export class RiskApprover {
       return { category: "min_qty", reason: "SL would be at or below zero — asset price too low relative to ATR" };
     }
     const tp = currentPrice + atrValue * config.exits.tpAtrMult;
-    const qty = computePositionSize(balance, config.risk.riskPerTrade, currentPrice, sl, config.risk.maxOpenExposure);
+    const qty = computePositionSize(
+      balance,
+      config.risk.riskPerTrade,
+      currentPrice,
+      sl,
+      config.risk.maxOpenExposure,
+      config.risk.positionCapEnabled ?? false,
+      config.risk.maxPositionPct ?? 0.05
+    );
 
     if (qty <= 0) {
       return { category: "min_qty", reason: "Computed position size is zero or negative" };

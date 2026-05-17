@@ -48,6 +48,8 @@ export interface RiskConfig {
   maxOpenExposure: number;
   consecutiveLossPause: number;
   cooldownDurationHours: number;
+  positionCapEnabled: boolean;
+  maxPositionPct: number; // max % of balance per single position (e.g. 0.05 = 5%)
 }
 
 export interface ExitConfig {

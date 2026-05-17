@@ -16,9 +16,10 @@ const THRESHOLD_DEFAULTS: Record<string, number | null> = {
   scoreThreshold: 60, rsiMin: 55, rsiMax: 70, mfiMin: 50, cmfMin: 0,
   volSmaMultiplier: 1.0, atrMin: 0, atrMax: null, emaCrossoverBars: 5,
 };
-const RISK_DEFAULTS: Record<string, number> = {
+const RISK_DEFAULTS: Record<string, number | boolean> = {
   riskPerTrade: 0.005, maxDailyLoss: 0.02, maxOpenExposure: 0.03,
   consecutiveLossPause: 3, cooldownDurationHours: 4,
+  positionCapEnabled: false, maxPositionPct: 0.05,
 };
 const EXIT_DEFAULTS: Record<string, number | boolean> = {
   slAtrMult: 1.5, tpAtrMult: 2.5, trailingEnabled: false,

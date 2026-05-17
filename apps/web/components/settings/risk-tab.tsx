@@ -8,26 +8,38 @@ interface Props { data: SettingsData | null; onSave: (ep: string, body: unknown)
 
 export function RiskTab({ data, onSave }: Props) {
   const t = useT();
-  const r = (data?.config?.risk ?? {}) as Record<string, number>;
-  const [rpt,  setRpt]  = useState(String(((r["riskPerTrade"] ?? 0.005) * 100).toFixed(2)));
-  const [mdl,  setMdl]  = useState(String(((r["maxDailyLoss"] ?? 0.02) * 100).toFixed(1)));
-  const [moe,  setMoe]  = useState(String(((r["maxOpenExposure"] ?? 0.03) * 100).toFixed(1)));
+  const r = (data?.config?.risk ?? {}) as Record<string, number | boolean>;
+  const [rpt,  setRpt]  = useState(String(((r["riskPerTrade"] as number ?? 0.005) * 100).toFixed(2)));
+  const [mdl,  setMdl]  = useState(String(((r["maxDailyLoss"] as number ?? 0.02) * 100).toFixed(1)));
+  const [moe,  setMoe]  = useState(String(((r["maxOpenExposure"] as number ?? 0.03) * 100).toFixed(1)));
   const [clp,  setClp]  = useState(String(r["consecutiveLossPause"] ?? 3));
   const [cdh,  setCdh]  = useState(String(r["cooldownDurationHours"] ?? 4));
+  const [capEnabled, setCapEnabled] = useState(Boolean(r["positionCapEnabled"] ?? false));
+  const [maxPosPct, setMaxPosPct]   = useState(String(((r["maxPositionPct"] as number ?? 0.05) * 100).toFixed(0)));
 
   useEffect(() => {
     if (!data?.config) return;
-    const rv = data.config.risk as Record<string, number>;
-    setRpt(String(((rv["riskPerTrade"] ?? 0.005) * 100).toFixed(2)));
-    setMdl(String(((rv["maxDailyLoss"] ?? 0.02) * 100).toFixed(1)));
-    setMoe(String(((rv["maxOpenExposure"] ?? 0.03) * 100).toFixed(1)));
+    const rv = data.config.risk as Record<string, number | boolean>;
+    setRpt(String(((rv["riskPerTrade"] as number ?? 0.005) * 100).toFixed(2)));
+    setMdl(String(((rv["maxDailyLoss"] as number ?? 0.02) * 100).toFixed(1)));
+    setMoe(String(((rv["maxOpenExposure"] as number ?? 0.03) * 100).toFixed(1)));
     setClp(String(rv["consecutiveLossPause"] ?? 3));
     setCdh(String(rv["cooldownDurationHours"] ?? 4));
+    setCapEnabled(Boolean(rv["positionCapEnabled"] ?? false));
+    setMaxPosPct(String(((rv["maxPositionPct"] as number ?? 0.05) * 100).toFixed(0)));
   }, [data]);
 
   const handleSave = () => void onSave("/api/settings/strategy", {
     id: data?.config?.id,
-    risk: { riskPerTrade: +rpt / 100, maxDailyLoss: +mdl / 100, maxOpenExposure: +moe / 100, consecutiveLossPause: +clp, cooldownDurationHours: +cdh },
+    risk: {
+      riskPerTrade: +rpt / 100,
+      maxDailyLoss: +mdl / 100,
+      maxOpenExposure: +moe / 100,
+      consecutiveLossPause: +clp,
+      cooldownDurationHours: +cdh,
+      positionCapEnabled: capEnabled,
+      maxPositionPct: +maxPosPct / 100,
+    },
   });
 
   const ROWS = [
@@ -50,15 +62,29 @@ export function RiskTab({ data, onSave }: Props) {
         </Row>
       ))}
 
+      {/* Position cap row */}
+      <Row label={t("settings.risk.pos_cap")} desc={t("settings.risk.pos_cap_desc")}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {capEnabled && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Input value={maxPosPct} onChange={setMaxPosPct} type="number" step="1" min="1" />
+              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-3)" }}>%</span>
+            </div>
+          )}
+          <Toggle enabled={capEnabled} onChange={setCapEnabled} />
+        </div>
+      </Row>
+
       {/* Visual summary */}
       <div style={{ marginTop: 20, padding: "14px 16px", background: "var(--bg-elevated)", borderLeft: "2px solid var(--accent-border)" }}>
         <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, letterSpacing: "0.12em", color: "var(--text-3)", marginBottom: 8, textTransform: "uppercase", fontWeight: 600 }}>{t("settings.risk.summary")}</div>
-        <div style={{ display: "flex", gap: 24 }}>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
           {[
             { k: t("settings.risk.per_trade_short"), v: rpt + "%" },
             { k: t("settings.risk.daily_max"), v: mdl + "%" },
             { k: t("settings.risk.exposure"), v: moe + "%" },
             { k: t("settings.risk.cooldown_short"), v: cdh + "h" },
+            ...(capEnabled ? [{ k: t("settings.risk.pos_cap_short"), v: maxPosPct + "%" }] : []),
           ].map(({ k, v }) => (
             <div key={k}>
               <div style={{ fontFamily: "var(--font-ui)", fontSize: 9, color: "var(--text-3)", letterSpacing: "0.10em", textTransform: "uppercase" }}>{k}</div>
@@ -70,6 +96,26 @@ export function RiskTab({ data, onSave }: Props) {
 
       <SaveBtn onClick={handleSave} t={t} />
     </div>
+  );
+}
+
+function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      onClick={() => onChange(!enabled)}
+      style={{
+        width: 40, height: 22, borderRadius: 11, border: "none", cursor: "pointer",
+        background: enabled ? "var(--positive)" : "rgba(255,255,255,0.10)",
+        position: "relative", transition: "background 0.2s", flexShrink: 0,
+      }}
+    >
+      <span style={{
+        position: "absolute", top: 3, left: enabled ? 21 : 3,
+        width: 16, height: 16, borderRadius: "50%",
+        background: enabled ? "var(--bg)" : "rgba(255,255,255,0.3)",
+        transition: "left 0.2s",
+      }} />
+    </button>
   );
 }
 

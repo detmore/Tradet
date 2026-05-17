@@ -5,7 +5,9 @@ export function computePositionSize(
   riskPercent: number,
   entryPrice: number,
   sl: number,
-  _maxOpenExposure: number  // toplam pozisyon limiti için approver'da ayrıca kontrol edilir
+  _maxOpenExposure: number,  // toplam pozisyon limiti approver'da ayrıca kontrol edilir
+  positionCapEnabled = false,
+  maxPositionPct = 0.05
 ): number {
   const riskAmount = balance * riskPercent;
   const slDistance = Math.abs(entryPrice - sl);
@@ -13,9 +15,13 @@ export function computePositionSize(
 
   const riskBasedQty = riskAmount / slDistance;
 
-  // balanceCap: fee + floating point hatalarından korunmak için %0.05 marj bırak
-  // qty * price * (1 + fee) <= balance  →  qty <= balance / (price * (1 + fee))
+  // Hard balance cap (fee + float margin)
   const balanceCap = (balance * 0.9995) / (entryPrice * (1 + TAKER_FEE));
 
-  return Math.min(riskBasedQty, balanceCap);
+  // Optional per-position cap: max X% of balance as notional value
+  const positionCap = positionCapEnabled && maxPositionPct > 0
+    ? (balance * maxPositionPct) / (entryPrice * (1 + TAKER_FEE))
+    : Infinity;
+
+  return Math.min(riskBasedQty, balanceCap, positionCap);
 }

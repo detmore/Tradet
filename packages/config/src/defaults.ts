@@ -4,6 +4,8 @@ export const RISK_DEFAULTS = {
   maxOpenExposure: 0.03,
   consecutiveLossPause: 3,
   cooldownDurationHours: 4,
+  positionCapEnabled: false,
+  maxPositionPct: 0.05,
 };
 
 export const EXIT_DEFAULTS = {

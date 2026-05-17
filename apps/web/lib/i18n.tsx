@@ -187,6 +187,9 @@ export const TR: Record<string, string> = {
   "settings.risk.daily_max":          "Günlük Max",
   "settings.risk.exposure":           "Pozisyon",
   "settings.risk.cooldown_short":     "Bekleme",
+  "settings.risk.pos_cap":            "Maksimum Pozisyon Boyutu",
+  "settings.risk.pos_cap_desc":       "Tek işlemde kullanılabilecek maksimum bakiye yüzdesi",
+  "settings.risk.pos_cap_short":      "POZ.LİMİT",
   // Settings - Exits
   "settings.exits.title":             "Çıkışlar",
   "settings.exits.sub":               "Zarar durdur & kar al",
@@ -419,6 +422,9 @@ export const EN: Record<string, string> = {
   "settings.risk.daily_max":          "Daily Max",
   "settings.risk.exposure":           "Exposure",
   "settings.risk.cooldown_short":     "Cooldown",
+  "settings.risk.pos_cap":            "Max Position Size",
+  "settings.risk.pos_cap_desc":       "Maximum % of balance that can be used in a single position",
+  "settings.risk.pos_cap_short":      "POS.CAP",
   // Settings - Exits
   "settings.exits.title":             "Exits",
   "settings.exits.sub":               "Stop loss & take profit",
