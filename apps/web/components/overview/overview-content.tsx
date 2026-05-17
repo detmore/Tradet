@@ -17,6 +17,8 @@ interface OverviewData {
     killSwitchActive: boolean;
   } | null;
   latestEquity: { unrealizedPnl: string; totalBalance: string } | null;
+  firstEquityBalance: string | null;
+  liveUnrealizedPnl: string | null;
   todayPnl: string;
   openPositionCount: number;
   recentAlerts: AlertItem[];
@@ -59,15 +61,22 @@ export function OverviewContent() {
   );
 
   const s = data?.settings;
-  const balance   = parseFloat(s?.paperCurrentBalance ?? "0");
-  const startBal  = parseFloat(s?.paperStartingBalance ?? "0");
-  const todayPnl  = parseFloat(data?.todayPnl ?? "0");
-  const unrealized = parseFloat(data?.latestEquity?.unrealizedPnl ?? "0");
-  const openPos   = data?.openPositionCount ?? 0;
-  const isPaper   = s?.mode === "paper";
-  const isRunning = s?.isRunning ?? false;
+  const balance    = parseFloat(s?.paperCurrentBalance ?? "0");
+  const startBal   = parseFloat(s?.paperStartingBalance ?? "0");
+  const todayPnl   = parseFloat(data?.todayPnl ?? "0");
+  // Use live unrealized PnL (from Binance prices) if available, fall back to DB snapshot
+  const unrealized = data?.liveUnrealizedPnl !== null && data?.liveUnrealizedPnl !== undefined
+    ? parseFloat(data.liveUnrealizedPnl)
+    : parseFloat(data?.latestEquity?.unrealizedPnl ?? "0");
+  const openPos    = data?.openPositionCount ?? 0;
+  const isPaper    = s?.mode === "paper";
+  const isRunning  = s?.isRunning ?? false;
   const killActive = s?.killSwitchActive ?? false;
-  const totalReturn = startBal > 0 ? ((balance - startBal) / startBal) * 100 : 0;
+  // All-time return: use first equity snapshot as baseline (not configured starting balance)
+  const refBal = data?.firstEquityBalance !== null && data?.firstEquityBalance !== undefined
+    ? parseFloat(data.firstEquityBalance)
+    : startBal;
+  const totalReturn = refBal > 0 ? ((balance - refBal) / refBal) * 100 : 0;
 
   return (
     <div style={{ height: "100%", overflow: "auto", background: "var(--bg)", padding: 1 }}>
@@ -328,7 +337,10 @@ function InfoRow({ label, value, valueColor }: { label: string; value: string; v
 }
 
 function SeverityBadge({ s }: { s: string }) {
-  const color = s === "critical" ? "var(--negative)" : s === "warning" ? "var(--accent)" : "var(--text-3)";
+  const color = s === "critical" ? "var(--negative)"
+    : s === "error" ? "var(--negative)"
+    : s === "warning" ? "var(--accent)"
+    : "var(--text-3)";
   return (
     <span style={{ fontFamily: "var(--font-ui)", fontSize: 10, fontWeight: 700, letterSpacing: "0.10em", color }}>
       {s.toUpperCase()}

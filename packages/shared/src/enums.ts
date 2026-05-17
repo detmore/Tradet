@@ -15,7 +15,8 @@ export type AlertCategory =
   | "daily_loss_limit"
   | "kill_switch"
   | "bot_error"
-  | "connection_error";
+  | "connection_error"
+  | "settings_changed";
 export type RiskRejectionCategory =
   | "daily_loss_limit"
   | "exposure_limit"

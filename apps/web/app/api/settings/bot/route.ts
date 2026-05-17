@@ -34,8 +34,8 @@ export async function PATCH(req: NextRequest) {
         .map(([k, v]) => `${k}=${String(v)}`)
         .join(", ");
       await db.insert(alerts).values({
-        severity: "warning",
-        category: "bot_error", // closest available category for system/settings events
+        severity: "info",
+        category: "settings_changed",
         title: "Settings Changed",
         body: `Critical setting updated: ${changeDesc}`,
         channel: "internal",
