@@ -1,10 +1,10 @@
-import type { LayerResult, DecisionAction, StrategyConfig } from "@trade/shared";
+import type { LayerResult, StrategyConfig } from "@trade/shared";
 
 export function scoreDecision(
   layers: LayerResult[],
   config: StrategyConfig
-): { score: number; action: DecisionAction } {
+): { score: number } {
   const totalScore = layers.reduce((sum, layer) => sum + layer.contribution, 0);
-  const action: DecisionAction = totalScore >= config.thresholds.scoreThreshold ? "buy" : "no_trade";
-  return { score: totalScore, action };
+  void config; // threshold comparison done in pipeline to keep action logic in one place
+  return { score: totalScore };
 }

@@ -38,6 +38,15 @@ export function computeAllIndicators(candles: Candle[], flags: StrategyFlags): I
     }
   }
 
+  // EMA spread: trend strength proxy — small spread indicates ranging market
+  const emaSpreadPct = ema50 > 0 ? ((ema20 - ema50) / ema50) * 100 : 0;
+
+  // Swing high: max of last 20 bars' highs (excluding current) — real resistance
+  const swingWindow = candles.slice(-21, -1);
+  const swingHigh = swingWindow.length > 0
+    ? Math.max(...swingWindow.map((c) => c.high))
+    : undefined;
+
   const snapshot: IndicatorSnapshot = {
     ema200,
     ema50,
@@ -46,6 +55,8 @@ export function computeAllIndicators(candles: Candle[], flags: StrategyFlags): I
     atr,
     volume,
     volumeSma,
+    emaSpreadPct,
+    ...(swingHigh !== undefined && { swingHigh }),
     ...(ema2050CrossoverBarsAgo !== undefined && { ema2050CrossoverBarsAgo }),
   };
 
@@ -55,9 +66,14 @@ export function computeAllIndicators(candles: Candle[], flags: StrategyFlags): I
   if (flags.useHeikinAshi) {
     const haCandles = computeHeikinAshi(candles);
     const latest = haCandles[haCandles.length - 1];
+    const prev = haCandles[haCandles.length - 2];
     if (latest) {
       snapshot.heikinAshiClose = latest.close;
       snapshot.heikinAshiOpen = latest.open;
+    }
+    if (prev) {
+      snapshot.heikinAshiPrevClose = prev.close;
+      snapshot.heikinAshiPrevOpen = prev.open;
     }
   }
 
@@ -80,10 +96,9 @@ export function computeAllIndicators(candles: Candle[], flags: StrategyFlags): I
 
   if (flags.usePivot && flags.retestConfirm && snapshot.pivotLevels) {
     const r1 = snapshot.pivotLevels.r1;
-    const lookback = candles.slice(-21, -1); // son 20 mum, mevcut hariç
+    const lookback = candles.slice(-21, -1);
     const breakoutIdx = lookback.findIndex((c) => c.close > r1);
     if (breakoutIdx !== -1 && breakoutIdx < lookback.length - 1) {
-      // Kırılım sonrası fiyat R1'e geri döndü mü? (±%0.5 tolerans)
       const tolerance = r1 * 0.005;
       const retestHappened = lookback.slice(breakoutIdx + 1).some(
         (c) => c.low <= r1 + tolerance

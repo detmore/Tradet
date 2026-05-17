@@ -7,6 +7,17 @@ import { INDICATOR_PERIODS } from "@trade/config";
 import type { EvaluationContext } from "../strategy/pipeline.js";
 
 const FEE_RATE = 0.001; // 0.1% taker fee
+
+function timeframeToBarsPerHour(tf: string): number {
+  if (tf === "1m")  return 60;
+  if (tf === "5m")  return 12;
+  if (tf === "15m") return 4;
+  if (tf === "30m") return 2;
+  if (tf === "1h")  return 1;
+  if (tf === "4h")  return 0.25;
+  if (tf === "1d")  return 1 / 24;
+  return 4; // fallback: 15m
+}
 const MIN_WINDOW = INDICATOR_PERIODS.ema200 + 10;
 const MAX_BARS_OPEN = 50;
 
@@ -77,8 +88,8 @@ export class BacktestEngine {
           if (pnl < 0) {
             consecutiveLosses++;
             if (consecutiveLosses >= strategyConfig.risk.consecutiveLossPause) {
-              // 4 bars/hour for 15m timeframe
-              cooldownUntilIndex = i + Math.round(strategyConfig.risk.cooldownDurationHours * 4);
+              const barsPerHour = timeframeToBarsPerHour(strategyConfig.timeframe);
+              cooldownUntilIndex = i + Math.round(strategyConfig.risk.cooldownDurationHours * barsPerHour);
               consecutiveLosses = 0;
             }
           } else {
@@ -215,8 +226,9 @@ export class BacktestEngine {
         : 0;
     const expectancy = (winRate / 100) * avgWin - (1 - winRate / 100) * avgLoss;
 
-    // Sharpe: sample daily returns from equity curve (96 bars = 1 day at 15m)
-    const dailyPoints = equityCurve.filter((_, idx) => idx % 96 === 0);
+    // Sharpe: sample daily returns — bars per day derived from timeframe
+    const barsPerDay = timeframeToBarsPerHour(timeframe) * 24;
+    const dailyPoints = equityCurve.filter((_, idx) => idx % Math.max(1, Math.round(barsPerDay)) === 0);
     const dailyReturns: number[] = [];
     for (let i = 1; i < dailyPoints.length; i++) {
       const prev = dailyPoints[i - 1];
@@ -237,7 +249,7 @@ export class BacktestEngine {
               dailyReturns.length
           )
         : 0;
-    const sharpeRatio = stdR > 0 ? (meanR / stdR) * Math.sqrt(252) : 0;
+    const sharpeRatio = stdR > 0 ? (meanR / stdR) * Math.sqrt(365) : 0;
 
     return {
       symbol,

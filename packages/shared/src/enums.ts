@@ -4,7 +4,7 @@ export type OrderStatus = "pending" | "open" | "filled" | "cancelled" | "rejecte
 export type PositionStatus = "open" | "closed";
 export type BotMode = "paper" | "live";
 export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
-export type ExitReason = "sl" | "tp" | "trailing" | "invalidation" | "manual";
+export type ExitReason = "sl" | "tp" | "trailing" | "invalidation" | "manual" | "time_exit";
 export type DecisionAction = "buy" | "sell" | "close" | "no_trade";
 export type AlertSeverity = "info" | "warning" | "error" | "critical";
 export type AlertCategory =
@@ -28,6 +28,7 @@ export type LayerName =
   | "ema200_filter"
   | "atr_range_filter"
   | "volume_filter"
+  | "ema_spread_filter"
   | "ema2050_setup"
   | "rsi_confirmation"
   | "mfi_confirmation"

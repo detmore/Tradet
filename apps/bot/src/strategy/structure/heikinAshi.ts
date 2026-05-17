@@ -15,8 +15,12 @@ export function structureHeikinAshi(ctx: EvaluationContext): LayerResult {
     };
   }
 
-  // Bullish HA candle: close > open
-  const passed = heikinAshiClose > heikinAshiOpen;
+  // Require 2 consecutive bullish HA candles to filter single-bar noise
+  const prevClose = ctx.indicators.heikinAshiPrevClose;
+  const prevOpen = ctx.indicators.heikinAshiPrevOpen;
+  const currentBullish = heikinAshiClose > heikinAshiOpen;
+  const prevBullish = prevClose !== undefined && prevOpen !== undefined ? prevClose > prevOpen : true;
+  const passed = currentBullish && prevBullish;
 
   return {
     layer: "heikin_ashi_structure",

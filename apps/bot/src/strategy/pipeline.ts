@@ -1,7 +1,8 @@
-import type { Candle, Decision, DecisionAction, IndicatorSnapshot, StrategyConfig } from "@trade/shared";
+import type { Candle, Decision, IndicatorSnapshot, StrategyConfig } from "@trade/shared";
 import { mandatoryEma200Filter } from "./filters/ema200.js";
 import { mandatoryAtrRangeFilter } from "./filters/atrRange.js";
 import { mandatoryVolumeFilter } from "./filters/volume.js";
+import { mandatoryEmaSpreadFilter } from "./filters/emaSpread.js";
 import { setupEma2050 } from "./setups/ema2050.js";
 import { confirmRsi } from "./confirmations/rsi.js";
 import { confirmMfi } from "./confirmations/mfi.js";
@@ -25,11 +26,12 @@ export class StrategyPipeline {
   evaluate(ctx: EvaluationContext): Decision {
     const flags = ctx.config.flags;
 
-    // Layer A: Mandatory filters — always evaluated
-    const ema200Result = mandatoryEma200Filter(ctx);
-    const atrResult    = mandatoryAtrRangeFilter(ctx);
-    const volResult    = mandatoryVolumeFilter(ctx);
-    const mandatoryPassed = ema200Result.passed && atrResult.passed && volResult.passed;
+    // Layer A: Mandatory filters — all must pass
+    const ema200Result      = mandatoryEma200Filter(ctx);
+    const atrResult         = mandatoryAtrRangeFilter(ctx);
+    const volResult         = mandatoryVolumeFilter(ctx);
+    const emaSpreadResult   = mandatoryEmaSpreadFilter(ctx); // ranging market filter
+    const mandatoryPassed   = ema200Result.passed && atrResult.passed && volResult.passed && emaSpreadResult.passed;
 
     // Layer B: Setup — always evaluated
     const setupResult  = setupEma2050(ctx);
@@ -52,6 +54,7 @@ export class StrategyPipeline {
       ema200Result,
       atrResult,
       volResult,
+      emaSpreadResult,
       setupResult,
       confirmRsiResult,
       ...(confirmMfiResult      ? [confirmMfiResult]      : []),
@@ -68,10 +71,10 @@ export class StrategyPipeline {
     const confirmationsPassed = confirmations.some((r) => r!.passed);
     const structurePassed     = qualityFilters.length === 0 || qualityFilters.some((r) => r!.passed);
 
-    // Always compute the real score — used by the dashboard even on no_trade
+    // Always compute score — used by dashboard even on no_trade
     const { score } = scoreDecision(trace, ctx.config);
 
-    // Gate the action: mandatory, setup, and at least one confirmation must pass
+    // Gate: mandatory + setup + at least one confirmation must pass
     if (!mandatoryPassed || !setupPassed || !confirmationsPassed) {
       return { action: "no_trade", score, trace, mandatoryPassed, setupPassed, confirmationsPassed, structurePassed };
     }

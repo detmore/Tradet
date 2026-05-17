@@ -29,6 +29,7 @@ export interface StrategyThresholds {
   atrMin: number;
   atrMax: number;
   emaCrossoverBars: number;
+  emaSpreadMin: number; // min % spread between ema20 and ema50
 }
 
 export interface StrategyFlags {
@@ -56,6 +57,7 @@ export interface ExitConfig {
   slAtrMult: number;
   tpAtrMult: number;
   trailingEnabled: boolean;
+  maxBarsInPosition: number; // 0 = disabled
 }
 
 export interface StrategyConfig {

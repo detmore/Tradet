@@ -29,4 +29,8 @@ export interface IndicatorSnapshot {
   pivotLevels?: PivotLevels;
   ema2050CrossoverBarsAgo?: number;
   retestValid?: boolean;
+  emaSpreadPct?: number;       // (ema20 - ema50) / ema50 * 100
+  swingHigh?: number;          // max high of last 20 bars — breakout reference
+  heikinAshiPrevClose?: number;
+  heikinAshiPrevOpen?: number;
 }

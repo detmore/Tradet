@@ -3,28 +3,28 @@ import type { EvaluationContext } from "../pipeline.js";
 import { LAYER_SCORES } from "@trade/config";
 
 export function confirmBreakout(ctx: EvaluationContext): LayerResult {
-  const { pivotLevels } = ctx.indicators;
-  const { close } = ctx.candle;
+  const { swingHigh } = ctx.indicators;
+  const { close, high } = ctx.candle;
   const { breakoutCloseConfirm } = ctx.config.flags;
 
-  if (!pivotLevels) {
+  if (swingHigh === undefined || swingHigh <= 0) {
     return {
       layer: "breakout_confirmation",
       passed: false,
       value: close,
-      threshold: "no pivot data",
+      threshold: "no swing data",
       contribution: 0,
     };
   }
 
-  const aboveR1 = breakoutCloseConfirm ? close > pivotLevels.r1 : ctx.candle.high > pivotLevels.r1;
-  const passed = aboveR1;
+  // Swing high = max of last 20 bars — a real resistance level the market tracks
+  const passed = breakoutCloseConfirm ? close > swingHigh : high > swingHigh;
 
   return {
     layer: "breakout_confirmation",
     passed,
     value: close,
-    threshold: pivotLevels.r1,
+    threshold: swingHigh,
     contribution: passed ? LAYER_SCORES.breakout : 0,
   };
 }

@@ -1,7 +1,7 @@
 export const RISK_DEFAULTS = {
   riskPerTrade: 0.005,
   maxDailyLoss: 0.02,
-  maxOpenExposure: 0.03,
+  maxOpenExposure: 0.02,
   consecutiveLossPause: 3,
   cooldownDurationHours: 4,
   positionCapEnabled: false,
@@ -11,19 +11,21 @@ export const RISK_DEFAULTS = {
 export const EXIT_DEFAULTS = {
   slAtrMult: 1.5,
   tpAtrMult: 2.5,
-  trailingEnabled: false,
+  trailingEnabled: true,
+  maxBarsInPosition: 8, // 0 = disabled
 };
 
 export const THRESHOLD_DEFAULTS = {
   scoreThreshold: 60,
   rsiMin: 55,
-  rsiMax: 70,
+  rsiMax: 75,
   mfiMin: 50,
   cmfMin: 0,
   volSmaMultiplier: 1.0,
   atrMin: 0,
   atrMax: Infinity,
   emaCrossoverBars: 5,
+  emaSpreadMin: 0.3, // min (ema20-ema50)/ema50 * 100 — filters ranging markets
 };
 
 export const FLAG_DEFAULTS = {
